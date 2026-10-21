@@ -164,19 +164,32 @@ public static class BubbleLevelBuilder
     }
 
     /// <summary>
-    /// Câmeras baixas, ao contrário da fase 1.
+    /// Câmeras altas, para o olho medir a distância do salto.
     ///
-    /// Lá o ângulo de 26 graus olhava de cima para a pista, que é o certo para
-    /// quem corre no plano. Aqui o que importa está ACIMA da bruxa: um ângulo
-    /// alto esconderia justamente a próxima bolha. Nos trechos de subida a
-    /// câmera chega a 10 graus, quase na horizontal.
+    /// A primeira versão fazia o contrário: ângulos de 10 a 22 graus, com a
+    /// ideia de que olhar de cima esconderia a bolha seguinte. Um teste com
+    /// jogadores derrubou isso - ninguém conseguia julgar o tamanho do pulo.
+    ///
+    /// A conta explica. Com a câmera quase na horizontal, duas bolhas a 8 e a
+    /// 11 m à frente ficam a 0,64 grau uma da outra na tela: a travessia lia
+    /// como uma pilha, não como três saltos longos. A 40 graus essa diferença
+    /// passa de 2,6 graus, e aparece a lava embaixo de cada vão, que é o que de
+    /// fato comunica o tamanho do salto.
+    ///
+    /// E o receio original não se sustentava. A 24 m de distância, mesmo a 40
+    /// graus a câmera ainda mostra 12,5 m acima da bruxa - quase o mesmo que a
+    /// 10 graus. A bolha seguinte da coluna fica a 3 m.
+    ///
+    /// Os ângulos variam por trecho: o mais alto onde o salto é horizontal
+    /// (travessia), um pouco menos onde ele também sobe (coluna), para a
+    /// chegada continuar inteira no quadro.
     /// </summary>
     static void CreateCameraZones(Transform root)
     {
-        Zone(root, "Largada", new Vector3(0f, 12f, 14f), new Vector3(40f, 32f, 34f), 22f, 20f);
-        Zone(root, "Escada", new Vector3(0f, 18f, 50f), new Vector3(40f, 40f, 40f), 13f, 23f);
-        Zone(root, "Travessia", new Vector3(0f, 26f, 90f), new Vector3(40f, 36f, 44f), 19f, 24f);
-        Zone(root, "Coluna", new Vector3(0f, 34f, 122f), new Vector3(34f, 40f, 32f), 10f, 24f);
+        Zone(root, "Largada", new Vector3(0f, 12f, 14f), new Vector3(40f, 32f, 34f), 32f, 21f);
+        Zone(root, "Escada", new Vector3(0f, 18f, 50f), new Vector3(40f, 40f, 40f), 36f, 24f);
+        Zone(root, "Travessia", new Vector3(0f, 26f, 90f), new Vector3(40f, 36f, 44f), 40f, 24f);
+        Zone(root, "Coluna", new Vector3(0f, 34f, 122f), new Vector3(34f, 40f, 32f), 30f, 24f);
     }
 
     // ------------------------------------------------------------------
