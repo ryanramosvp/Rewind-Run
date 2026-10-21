@@ -9,6 +9,9 @@ EditorBuildSettings:
     path: Assets/Scenes/Menu.unity
     guid: 075f550ecb2cb0e43bfe3ee93639a39d
   - enabled: 1
+    path: Assets/Scenes/Tutorial.unity
+    guid: 2b8d0e8f489014340a0dc8d645575206
+  - enabled: 1
     path: Assets/Scenes/Level_CorridaDeLava.unity
     guid: 46decb53695cca843bcda36d8a76ad87
   - enabled: 1

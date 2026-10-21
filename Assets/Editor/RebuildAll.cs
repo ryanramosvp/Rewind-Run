@@ -23,10 +23,11 @@ public static class RebuildAll
 
         WitchSetup.Build();
         MenuSceneBuilder.Build();
+        TutorialLevelBuilder.Build();
         SpeedrunLevelBuilder.Build();
         BubbleLevelBuilder.Build();
 
-        Debug.Log("Reconstruído: bruxa, menu, Corrida de Lava e Torre de Bolhas. " +
+        Debug.Log("Reconstruído: bruxa, menu, tutorial, Corrida de Lava e Torre de Bolhas. " +
                   "A bancada de testes não entra aqui - ela é separada de propósito, " +
                   "para não sobrescrever o que você estiver conferindo nela.");
     }

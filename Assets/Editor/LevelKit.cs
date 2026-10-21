@@ -115,9 +115,20 @@ public static class LevelKit
     public static GameObject AssembleSystems(float gold, float silver, float bronze,
                                              string nextLevelScene = null)
     {
+        var player = AssembleSystemsWithoutSession(nextLevelScene);
+        CreateSession(gold, silver, bronze);
+        return player;
+    }
+
+    /// <summary>
+    /// O mesmo conjunto, sem placar nem cronômetro. É o do tutorial: lá não há
+    /// tempo a bater, e um relógio correndo enquanto se lê a instrução diria o
+    /// contrário.
+    /// </summary>
+    public static GameObject AssembleSystemsWithoutSession(string nextLevelScene = null)
+    {
         var player = CreatePlayer();
         CreateRewindManager();
-        CreateSession(gold, silver, bronze);
 
         var hud = CreateHud(player);
         CreateEndScreens(nextLevelScene);
@@ -426,7 +437,7 @@ public static class LevelKit
         // Tintura translucida: ver onde se morreu ensina mais que um fundo preto.
         UiBuilder.CreateFullScreen(holder, "Tintura", new Color(0.45f, 0.08f, 0.03f, 0.55f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "NAO FOI DESSA VEZ",
+        var card = UiBuilder.CreateCard(holder, "Cartao", "NÃO FOI DESSA VEZ",
                                         UiBuilder.Swatch.Vermelho, new Vector2(0.5f, 0.5f),
                                         Vector2.zero, new Vector2(920f, 420f), titleSize: 52);
 

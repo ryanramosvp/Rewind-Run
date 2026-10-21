@@ -130,8 +130,10 @@ MonoBehaviour:
   moveSpeed: 11
   groundAcceleration: 70
   groundDeceleration: 80
-  airAcceleration: 40
-  airTurnSpeed: 360
+  airAcceleration: 22
+  airTurnSpeed: 180
+  airBrake: 24
+  airReverseAngle: 120
   turnSpeed: 900
   jumpHeight: 3.2
   doubleJumpHeight: 2.8

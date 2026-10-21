@@ -484,8 +484,8 @@
                 },
                 {
                     "name": "",
-                    "id": "6991fffd-eff4-4435-be7e-7ca36a43fd75",
-                    "path": "<Keyboard>/q",
+                    "id": "b7a3c1e2-5d4f-4e8a-9c6b-3f2e1d0a9b8c",
+                    "path": "<Mouse>/rightButton",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",

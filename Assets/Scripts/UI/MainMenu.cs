@@ -15,6 +15,13 @@ public class MainMenu : MonoBehaviour
     [Tooltip("Cena da fase a carregar em Jogar.")]
     [SerializeField] string levelScene = "Level_CorridaDeLava";
 
+    [Tooltip("Cena do tutorial. Ao terminar, ela mesma segue para a fase.")]
+    [SerializeField] string tutorialScene = "Tutorial";
+
+    [Tooltip("Pergunta se quer fazer o tutorial. Vazio faz o Jogar ir direto para a fase.")]
+    [SerializeField] GameObject tutorialPanel;
+    [SerializeField] Button tutorialYesButton;
+
     [SerializeField] GameObject buttonsGroup;
     [SerializeField] GameObject controlsPanel;
     [SerializeField] GameObject settingsPanel;
@@ -44,7 +51,8 @@ public class MainMenu : MonoBehaviour
     void Update()
     {
         bool open = (controlsPanel != null && controlsPanel.activeSelf)
-                    || (settingsPanel != null && settingsPanel.activeSelf);
+                    || (settingsPanel != null && settingsPanel.activeSelf)
+                    || (tutorialPanel != null && tutorialPanel.activeSelf);
 
         if (!open) return;
 
@@ -57,7 +65,28 @@ public class MainMenu : MonoBehaviour
             CloseControls();
     }
 
-    public void Play() => SceneManager.LoadScene(levelScene);
+    /// <summary>
+    /// Pergunta toda vez, sem lembrar a resposta. Quem joga a entrega costuma
+    /// ser uma pessoa nova a cada partida no mesmo computador, e uma escolha
+    /// gravada pelo jogador anterior esconderia o tutorial de quem precisa dele.
+    /// </summary>
+    public void Play()
+    {
+        if (tutorialPanel == null)
+        {
+            SkipTutorial();
+            return;
+        }
+
+        tutorialPanel.SetActive(true);
+        if (buttonsGroup != null) buttonsGroup.SetActive(false);
+
+        if (tutorialYesButton != null) tutorialYesButton.Select();
+    }
+
+    public void PlayTutorial() => SceneManager.LoadScene(tutorialScene);
+
+    public void SkipTutorial() => SceneManager.LoadScene(levelScene);
 
     public void OpenControls()
     {
@@ -73,6 +102,7 @@ public class MainMenu : MonoBehaviour
     {
         if (controlsPanel != null) controlsPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (tutorialPanel != null) tutorialPanel.SetActive(false);
         if (buttonsGroup != null) buttonsGroup.SetActive(true);
 
         if (firstButton != null) firstButton.Select();

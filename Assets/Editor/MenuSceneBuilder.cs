@@ -53,7 +53,30 @@ public static class MenuSceneBuilder
     static Transform CreateDiorama()
     {
         var root = new GameObject("Diorama").transform;
+        BuildVolcano(root);
 
+        HazardSetup.EnsureLava(new Vector3(0f, 0f, 0f), 80f, 80f);
+
+        // Desfaz e remonta o cenário em ciclo. Quem dirige é a câmera, que
+        // conhece o tempo do rewind.
+        root.gameObject.AddComponent<DioramaDissolve>();
+
+        var focus = new GameObject("FocoDaOrbita").transform;
+        focus.SetParent(root, false);
+        focus.localPosition = new Vector3(0f, 2f, 0f);
+
+        return focus;
+    }
+
+    /// <summary>
+    /// As peças do vulcão, sem lava nem câmera.
+    ///
+    /// Pública porque o tutorial acontece neste mesmo cenário. Duas cópias da
+    /// geometria sairiam do lugar uma em relação à outra no primeiro ajuste, e
+    /// o jogador que acabou de ver o menu reconhece o vulcão de cara.
+    /// </summary>
+    public static void BuildVolcano(Transform root)
+    {
         for (int x = -1; x <= 1; x++)
         for (int z = -1; z <= 1; z++)
             Place(root, "red", "platform_6x6x2", new Vector3(x * 6f, 0f, z * 6f));
@@ -79,14 +102,6 @@ public static class MenuSceneBuilder
         Place(root, "yellow", "platform_4x4x1", new Vector3(-14f, 6f, -12f));
         Place(root, "red", "arch", new Vector3(0f, 2f, -14f));
         Place(root, "red", "bomb_A", new Vector3(-6f, 2f, 4f));
-
-        HazardSetup.EnsureLava(new Vector3(0f, 0f, 0f), 80f, 80f);
-
-        var focus = new GameObject("FocoDaOrbita").transform;
-        focus.SetParent(root, false);
-        focus.localPosition = new Vector3(0f, 2f, 0f);
-
-        return focus;
     }
 
     static Volume CreateRewindVolume()
@@ -117,6 +132,8 @@ public static class MenuSceneBuilder
         var diorama = go.AddComponent<MenuDiorama>();
         EditorSetupUtil.SetReference(diorama, "target", focus);
         EditorSetupUtil.SetReference(diorama, "rewindVolume", volume);
+        EditorSetupUtil.SetReference(diorama, "dissolve",
+            focus.parent != null ? focus.parent.GetComponent<DioramaDissolve>() : null);
 
         return go;
     }
@@ -143,7 +160,7 @@ public static class MenuSceneBuilder
         var controls = UiBuilder.CreateButton(group, "CONTROLES", new Vector2(0.5f, 0.5f),
                                               new Vector2(0f, 40f), new Vector2(520f, 96f),
                                               UiBuilder.Swatch.Ouro);
-        var settings = UiBuilder.CreateButton(group, "OPCOES", new Vector2(0.5f, 0.5f),
+        var settings = UiBuilder.CreateButton(group, "OPÇÕES", new Vector2(0.5f, 0.5f),
                                               new Vector2(0f, -70f), new Vector2(520f, 96f),
                                               UiBuilder.Swatch.Terracota);
         var quit = UiBuilder.CreateButton(group, "SAIR", new Vector2(0.5f, 0.5f),
@@ -155,12 +172,15 @@ public static class MenuSceneBuilder
         UiBuilder.Bind(settings, menu, nameof(MainMenu.OpenSettings));
         UiBuilder.Bind(quit, menu, nameof(MainMenu.Quit));
 
+        var tutorial = CreateTutorialPrompt(root, menu, out var tutorialYes);
         var panel = CreateControlsPanel(root, menu, out var back);
         var options = CreateSettingsPanel(root, menu, out var optionsBack,
                                           out var timerLabel, out var speedLabel,
                                           out var timerPill, out var speedPill);
 
         EditorSetupUtil.SetReference(menu, "buttonsGroup", group.gameObject);
+        EditorSetupUtil.SetReference(menu, "tutorialPanel", tutorial);
+        EditorSetupUtil.SetReference(menu, "tutorialYesButton", tutorialYes);
         EditorSetupUtil.SetReference(menu, "controlsPanel", panel);
         EditorSetupUtil.SetReference(menu, "settingsPanel", options);
         EditorSetupUtil.SetReference(menu, "firstButton", play);
@@ -200,6 +220,45 @@ public static class MenuSceneBuilder
                               new Vector2(-150f, -10f), new Vector2(440f, 10f));
     }
 
+    /// <summary>
+    /// A pergunta que o JOGAR faz antes de carregar a fase.
+    ///
+    /// O tutorial é a opção de cima e a que já vem selecionada: quem aperta
+    /// Enter sem ler é justamente quem ainda não conhece os comandos. Quem já
+    /// conhece desce uma opção e vai direto para a fase.
+    /// </summary>
+    static GameObject CreateTutorialPrompt(Transform root, MainMenu menu, out Button yes)
+    {
+        var holder = UiBuilder.CreateStretched(root, "TelaDoTutorial");
+        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.9f));
+
+        var card = UiBuilder.CreateCard(holder, "Cartao", "PRIMEIRA CORRIDA?", UiBuilder.Swatch.Laranja,
+                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 110f),
+                                        new Vector2(1000f, 330f), titleSize: 52);
+
+        UiBuilder.CreateText(card, "Pergunta",
+                             "Quer fazer o tutorial? Ele mostra os comandos um por um, " +
+                             "no próprio vulcão, e depois segue para a primeira fase.",
+                             38, UiBuilder.Ash, new Vector2(0.5f, 0.5f), new Vector2(0f, -40f),
+                             new Vector2(900f, 180f));
+
+        yes = UiBuilder.CreateButton(holder, "FAZER O TUTORIAL", new Vector2(0.5f, 0.5f),
+                                     new Vector2(0f, -150f), new Vector2(700f, 96f),
+                                     UiBuilder.Swatch.Laranja);
+        var no = UiBuilder.CreateButton(holder, "IR DIRETO PARA A FASE", new Vector2(0.5f, 0.5f),
+                                        new Vector2(0f, -260f), new Vector2(700f, 96f),
+                                        UiBuilder.Swatch.Ardosia);
+
+        UiBuilder.CreateText(holder, "Dica", "Esc para voltar", 30, UiBuilder.Ash,
+                             new Vector2(0.5f, 0.5f), new Vector2(0f, -360f),
+                             new Vector2(700f, 50f));
+
+        UiBuilder.Bind(yes, menu, nameof(MainMenu.PlayTutorial));
+        UiBuilder.Bind(no, menu, nameof(MainMenu.SkipTutorial));
+
+        return holder.gameObject;
+    }
+
     static GameObject CreateControlsPanel(Transform root, MainMenu menu, out Button back)
     {
         var holder = UiBuilder.CreateStretched(root, "TelaDeControles");
@@ -213,9 +272,9 @@ public static class MenuSceneBuilder
         foreach (var (key, description) in new[]
         {
             ("WASD", "mover"),
-            ("ESPACO", "pular, e de novo no ar"),
-            ("ESPACO", "na parede, salto de parede"),
-            ("Q", "voltar no tempo"),
+            ("ESPAÇO", "pular, e de novo no ar"),
+            ("ESPAÇO", "na parede, salto de parede"),
+            ("BOTÃO DIR.", "segurar: voltar no tempo"),
             ("ESC ou P", "pausar"),
         })
         {
@@ -238,14 +297,14 @@ public static class MenuSceneBuilder
         var holder = UiBuilder.CreateStretched(root, "TelaDeOpcoes");
         UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "OPCOES", UiBuilder.Swatch.Terracota,
+        var card = UiBuilder.CreateCard(holder, "Cartao", "OPÇÕES", UiBuilder.Swatch.Terracota,
                                         new Vector2(0.5f, 0.5f), new Vector2(0f, 40f),
                                         new Vector2(1020f, 580f), titleSize: 56);
 
         var volume = UiBuilder.CreateSliderRow(card, "VOLUME", new Vector2(0f, 120f),
                                                new Vector2(940f, 96f), out var volumeLabel);
 
-        var timerButton = UiBuilder.CreateToggleRow(card, "CRONOMETRO", new Vector2(0f, 10f),
+        var timerButton = UiBuilder.CreateToggleRow(card, "CRONÔMETRO", new Vector2(0f, 10f),
                                                     new Vector2(940f, 96f),
                                                     out timerLabel, out timerPill);
         var speedButton = UiBuilder.CreateToggleRow(card, "VELOCIDADE", new Vector2(0f, -100f),
@@ -299,6 +358,7 @@ public static class MenuSceneBuilder
         // nada no jogo leva até ela - cena inalcançável dentro do build é peso
         // morto no zip e confunde quem abrir o projeto.
         var wanted = new[] { kScenePath,
+                            TutorialLevelBuilder.ScenePath,
                             "Assets/Scenes/Level_CorridaDeLava.unity",
                             "Assets/Scenes/Level_TorreDeBolhas.unity" };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();

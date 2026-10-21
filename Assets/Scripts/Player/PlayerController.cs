@@ -34,12 +34,21 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Freada ao soltar o direcional no chão.")]
     [SerializeField, Min(0f)] float groundDeceleration = 80f;
 
-    [Tooltip("Aceleração no ar. Menor que a do chão dá peso ao pulo sem tirar o controle.")]
-    [SerializeField, Min(0f)] float airAcceleration = 40f;
+    [Tooltip("Aceleração no ar. Menor que a do chão dá peso ao pulo sem tirar o controle. " +
+             "Com 40 a bruxa chegava à velocidade máxima em 0,28 s no ar e parecia sem peso; " +
+             "com 22 leva meio segundo, metade de um pulo.")]
+    [SerializeField, Min(0f)] float airAcceleration = 22f;
 
     [Tooltip("Graus por segundo que a velocidade pode girar no ar. É o que " +
-             "separa curvar de derrapar na diagonal.")]
-    [SerializeField, Min(0f)] float airTurnSpeed = 360f;
+             "separa curvar de derrapar na diagonal. Com 360 dava para dar meia-volta " +
+             "no ar em 0,33 s sem perder velocidade nenhuma.")]
+    [SerializeField, Min(0f)] float airTurnSpeed = 180f;
+
+    [Tooltip("Freada no ar quando o direcional aponta contra o embalo, em m/s².")]
+    [SerializeField, Min(0f)] float airBrake = 24f;
+
+    [Tooltip("A partir de quantos graus entre o embalo e o direcional o ar freia em vez de girar.")]
+    [SerializeField, Range(90f, 180f)] float airReverseAngle = 120f;
 
     [SerializeField, Min(0f)] float turnSpeed = 900f;
 
@@ -159,6 +168,12 @@ public class PlayerController : MonoBehaviour
 
     /// <summary>Disparado a cada pulo. O parâmetro diz se foi um pulo no ar.</summary>
     public event System.Action<bool> Jumped;
+
+    /// <summary>
+    /// Disparado a cada salto de parede, além do <see cref="Jumped"/>. O
+    /// tutorial precisa distinguir os dois, e o Jumped sozinho não distingue.
+    /// </summary>
+    public event System.Action WallJumped;
 
     /// <summary>Disparado ao tocar o chão, com a velocidade da queda em m/s.</summary>
     public event System.Action<float> Landed;
@@ -553,7 +568,8 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// Controle no ar: gira o embalo, depois acelera. Nunca freia.
+    /// Controle no ar: gira o embalo, depois acelera. Só freia quando o
+    /// direcional aponta contra ele.
     ///
     /// São dois passos porque um só não dá conta. Somar na direção pedida, que
     /// era o modelo anterior, preserva o embalo mas não curva: voando a 11 m/s
@@ -566,17 +582,32 @@ public class PlayerController : MonoBehaviour
     /// não velocidade. A soma depois ainda existe para quem salta parado ou
     /// vinha devagar.
     ///
-    /// E continua sem freio: soltar o direcional não tira nada, e o excesso que
-    /// vier do hop, de uma bolha ou de uma plataforma sobrevive ao voo.
+    /// Soltar o direcional continua não tirando nada: o excesso que vier do
+    /// hop, de uma bolha ou de uma plataforma sobrevive ao voo.
+    ///
+    /// O que mudou foi a meia-volta. Girar sempre preservando o módulo deixava
+    /// a bruxa inverter o sentido no ar em 0,33 s a 11 m/s, sem perder nada -
+    /// o embalo inteiro mudava de lado como se não tivesse massa, e numa
+    /// correção pequena ela respondia demais. Agora, apontar CONTRA o embalo
+    /// freia primeiro; só depois de parar ela acelera para o outro lado, e a
+    /// meia-volta leva cerca de um segundo. Curvas abaixo do ângulo de
+    /// inversão seguem girando como antes, só mais devagar.
     /// </summary>
     Vector3 AirControl(Vector3 current, Vector3 wish, float targetSpeed, float dt)
     {
         if (wish.sqrMagnitude < 0.0001f) return current;
 
+        float speed = current.magnitude;
+
+        // Contra o embalo: freia, e não acelera no mesmo quadro. Somar o
+        // passo 2 aqui empurraria para trás enquanto o freio ainda trabalha,
+        // e a meia-volta voltaria a ser instantânea.
+        if (speed > 0.01f && Vector3.Angle(current, wish) > airReverseAngle)
+            return Vector3.MoveTowards(current, Vector3.zero, airBrake * dt);
+
         // Passo 1: girar o que já existe, preservando o módulo. O zero no
         // último argumento é o que garante isso - RotateTowards mexeria no
         // comprimento se ele fosse maior.
-        float speed = current.magnitude;
         if (speed > 0.01f)
         {
             current = Vector3.RotateTowards(current, wish * speed,
@@ -735,6 +766,7 @@ public class PlayerController : MonoBehaviour
         if (wallJumpRestoresAirJump) _airJumpsUsed = 0;
 
         Jumped?.Invoke(false);
+        WallJumped?.Invoke();
     }
 
     /// <summary>

@@ -98,12 +98,13 @@ public class EndScreen : MonoBehaviour
         // Já venceu: uma morte tardia não deve roubar a tela de vitória.
         if (_isVictory) return;
 
-        if (deathSummary != null && session != null)
+        if (deathSummary != null)
         {
             // "queda" descrevia só um dos jeitos de morrer. Com prensa e
-            // hélice na fase, o texto tem que valer para todos.
-            deathSummary.text = $"morte nº {session.Deaths}\n\n" +
-                                "qualquer tecla para continuar\nEsc para o menu";
+            // hélice na fase, o texto tem que valer para todos. Sem placar -
+            // o tutorial não tem - fica só o como sair, que é o que importa.
+            string count = session != null ? $"morte nº {session.Deaths}\n\n" : string.Empty;
+            deathSummary.text = count + "qualquer tecla para continuar\nEsc para o menu";
         }
 
         Show(deathPanel, victory: false);
@@ -155,8 +156,8 @@ public class EndScreen : MonoBehaviour
             // quebra linha, uma sequencia de espacos vira um ponto de quebra
             // qualquer e o alinhamento se desfaz.
             victorySummary.text = string.IsNullOrEmpty(nextLevelScene)
-                ? "Espaco ou R para correr de novo   |   Esc para o menu"
-                : "Espaco: proxima fase   |   R: correr de novo   |   Esc: menu";
+                ? "Espaço ou R para correr de novo   |   Esc para o menu"
+                : "Espaço: próxima fase   |   R: correr de novo   |   Esc: menu";
     }
 
     void Show(GameObject panel, bool victory)
