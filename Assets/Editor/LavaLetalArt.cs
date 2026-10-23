@@ -46,6 +46,7 @@ public static class LavaLetalArt
     public static Material GlowYellow { get; private set; }
     public static Material GlowCyan { get; private set; }
     public static Material Sky { get; private set; }
+    public static Material Jet { get; private set; }
 
     /// <summary>Cria ou atualiza tudo. Idempotente: rodar de novo só reescreve.</summary>
     public static void Ensure()
@@ -64,6 +65,12 @@ public static class LavaLetalArt
         // só aparece onde a emissão estoura.
         Lava = Lit("Lava", lava, new Color(0.42f, 0.08f, 0.05f), emission: lava,
                    emissionColor: LavaGlow, smoothness: 0.25f);
+
+        // O jato do gêiser: a mesma textura, bem mais clara e acesa que a
+        // lava do chão. Contra o vermelho fundo da laje, é a única coisa
+        // laranja-amarela de pé na tela - lê de longe como perigo.
+        Jet = Lit("JatoDeLava", lava, new Color(1f, 0.5f, 0.15f), emission: lava,
+                  emissionColor: new Color(2.4f, 1.3f, 0.45f), smoothness: 0.3f);
 
         RockSide = Lit("RochaLateral", rockDark, Color.white);
         RockGray = Lit("RochaCinza", rockLight, new Color(0.66f, 0.63f, 0.6f));

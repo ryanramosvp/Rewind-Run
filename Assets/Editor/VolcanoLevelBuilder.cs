@@ -35,7 +35,10 @@ public static class VolcanoLevelBuilder
     // rampas, o que dá ~21 s sem erro; o S fica um pouco acima disso. O save
     // registra as corridas, então recalibrar depois de jogar é ler o melhor
     // tempo dele.
-    static readonly float[] kRanks = { 24f, 29f, 37f, 48f, 66f };
+    //
+    // Os obstáculos somam espera: prensas, gêiseres e plataformas móveis
+    // custam uns 3 s numa corrida limpa, daí o S em 27.
+    static readonly float[] kRanks = { 27f, 33f, 42f, 54f, 74f };
 
     /// <summary>Onde as ilhas começam, abaixo da lava: a base nunca aparece.</summary>
     const float kBedrock = -1.5f;
@@ -47,6 +50,10 @@ public static class VolcanoLevelBuilder
 
     /// <summary>Contorno de cada plataforma do percurso, em XZ de mundo, para a validação.</summary>
     static readonly Dictionary<string, (float top, Vector2[] poly)> s_Footprints =
+        new Dictionary<string, (float, Vector2[])>();
+
+    /// <summary>Contorno das plataformas móveis na outra ponta do percurso.</summary>
+    static readonly Dictionary<string, (float top, Vector2[] poly)> s_FarEnds =
         new Dictionary<string, (float, Vector2[])>();
 
     /// <summary>Centro de cada bolha, para a validação dos combos.</summary>
@@ -76,6 +83,7 @@ public static class VolcanoLevelBuilder
         KayKitMaterialSetup.Apply();
         LavaLetalArt.Ensure();
         s_Footprints.Clear();
+        s_FarEnds.Clear();
         s_Bubbles.Clear();
         s_RampLips.Clear();
 
@@ -144,7 +152,13 @@ public static class VolcanoLevelBuilder
     /// </summary>
     static void CreateFirstIslands(Transform root)
     {
-        Plate(root, "Placa1", 2f, 21f, 4.6f, 5f, 5f, 15f, LavaLetalArt.Metal, trim: true, supports: true);
+        // Primeira plataforma móvel: anda 6 m de lado, devagar e com parada
+        // longa. Das duas pontas o salto de ida e o de volta são folgados (ver
+        // a validação) - é a mecânica apresentada sem cobrar nada, só para o
+        // jogador ver que plataforma que anda o carrega junto.
+        var placa = Plate(root, "Placa1", 2f, 21f, 4.6f, 5f, 5f, 15f, LavaLetalArt.Metal, trim: true, supports: false);
+        MakeMoving(placa, new Vector3(-6f, 0f, 0f), travelSeconds: 2.4f, waitSeconds: 0.9f, phase: 0f);
+
         Rock(root, "Ilhota1", -5f, 31f, 5.2f, 3.4f, 6, 102, LavaLetalArt.RockBurnt);
 
         Bubble(root, "Bolha_A", new Vector3(-5f, 8.2f, 38.5f), 0f);
@@ -186,11 +200,24 @@ public static class VolcanoLevelBuilder
         Decor(root, "Central_Miolo", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 3.4f, 0f), 5.02f, 5.08f, LavaLetalArt.RockTile),
               LavaLetalArt.Ember, new Vector3(11f, 0f, 74f));
 
+        // Primeiro gêiser, no miolo quente da ilha: o lugar que já parecia
+        // perigoso agora é. A ilha tem 20 m, e o jato 1,8 - dá para contornar
+        // sem esperar, ou parar na beira e assistir um ciclo inteiro. É onde
+        // se aprende a ler o aviso antes de ele cobrar alguma coisa.
+        Geyser(root, "Geiser_Central", new Vector3(11f, 5.08f, 74f), idleSeconds: 3.4f, phase: 0f);
+
         // Um degrau metálico em cima da ilha, para ela misturar pedra e chapa
         // como a referência. Fica fora da linha entre a entrada e a saída.
         Plate(root, "Podio", 14f, 79.5f, 5.6f, 3f, 3f, 10f, LavaLetalArt.Metal, trim: true, supports: false);
 
         Plate(root, "Patio", 28f, 81f, 5f, 8f, 8f, 0f, LavaLetalArt.Metal, trim: true, supports: true);
+
+        // Primeira hélice, no pátio largo: dois braços de 2,85 m numa placa de
+        // 8, girando devagar. Sobra uma faixa de 1,1 m na beira que a barra
+        // nunca alcança, e as quinas ficam livres - dá para atravessar pela
+        // borda ou esperar o braço passar. A barra empurra, não mata (é a
+        // BladePush da fase 1); o perigo é ser empurrado para fora.
+        LevelKit.Blade(root, new Vector3(28f, 5f, 81f), 50f, 0f);
     }
 
     /// <summary>
@@ -207,13 +234,27 @@ public static class VolcanoLevelBuilder
     static void CreateCorridor(Transform root)
     {
         Rock(root, "Segura1", 36f, 91f, 5.6f, 4f, 5, 104, LavaLetalArt.RockBrown);
-        Plate(root, "Segura2", 35f, 101f, 6f, 4f, 6f, 10f, LavaLetalArt.MetalBlue, trim: true, supports: true);
+
+        // Plataforma sobre o vão: vai e volta 5 m de lado entre as duas
+        // rochas. É grande (4 x 6) e as duas pontas servem para os dois
+        // saltos, mas numa delas o salto de saída fica longo - escolher quando
+        // pular passa a ser parte da rota segura.
+        var meio = Plate(root, "Segura2", 33f, 101f, 6f, 4f, 6f, 10f, LavaLetalArt.MetalBlue, trim: true, supports: false);
+        MakeMoving(meio, new Vector3(5f, 0f, 0f), travelSeconds: 2f, waitSeconds: 0.6f, phase: 0.3f);
+
         Rock(root, "Segura3", 29.5f, 109.5f, 6.2f, 3.4f, 6, 105, LavaLetalArt.RockGray);
         Rock(root, "Juncao", 20f, 111f, 6.4f, 4.6f, 7, 106, LavaLetalArt.RockBurnt);
 
-        LevelKit.Place(root, "yellow", "platform_2x2x1", new Vector3(20f, 5f, 92f));
-        LevelKit.Place(root, "neutral", "pillar_1x1x8", new Vector3(20f, -3f, 92f));
-        Register("Atalho1", 6f, Square(20f, 92f, 2f));
+        // O atalho agora anda: de 89 a 95 m em Z, na direção da junção. Perto,
+        // o salto final é um pulo duplo de 11 m; longe, passa de 17 m e não
+        // fecha. A rota rápida pede, além do pulo duplo, o momento certo.
+        var atalho = Plate(root, "Atalho1", 20f, 89f, 6f, 3f, 3f, 0f, LavaLetalArt.MetalBlue, trim: true, supports: false);
+        MakeMoving(atalho, new Vector3(0f, 0f, 6f), travelSeconds: 2.2f, waitSeconds: 0.7f, phase: 0f);
+
+        // Segundo gêiser, na junção, perto da saída para a passarela. A ilha é
+        // estreita (4,6 m) e as duas rotas pousam nela; o jato não fecha a
+        // saída, mas obriga a escolher de que beira pular, ou a esperar 1,8 s.
+        Geyser(root, "Geiser_Juncao", new Vector3(18.2f, 6.4f, 112.2f), idleSeconds: 2.6f, phase: 0.4f);
     }
 
     /// <summary>
@@ -231,11 +272,33 @@ public static class VolcanoLevelBuilder
     {
         Plate(root, "Passarela3", 7.5f, 116f, 7f, 12f, 2.2f, 0f, LavaLetalArt.Metal, trim: true, supports: true);
 
+        // Duas prensas na passarela, com ciclos de 3,0 e 3,3 s. Caem em 0,4 s
+        // (só aí matam), ficam 0,4 s no chão como muro e sobem devagar. Os
+        // ciclos diferentes fazem a janela das duas abertas ao mesmo tempo
+        // mudar a cada volta, mas ela sempre volta - quem espera na junção
+        // vê o padrão inteiro antes de entrar.
+        LevelKit.Crusher(root, 10.5f, 116f, 13f, 7f, 0f, descendSeconds: 0.4f, riseSeconds: 1f,
+                         topWait: 1.2f, bottomWait: 0.4f);
+        LevelKit.Crusher(root, 4.5f, 116f, 13f, 7f, 0.5f, descendSeconds: 0.4f, riseSeconds: 1.1f,
+                         topWait: 1.4f, bottomWait: 0.4f);
+
         Column(root, "Pedra1", -3.5f, 113.5f, 5f, 107);
-        Column(root, "Pedra2", -8f, 117f, 5f, 108);
+
+        // A coluna do meio sobe e desce 2,5 m. Os dois saltos fecham nas duas
+        // alturas, mas embaixo a ida é uma descida e em cima uma subida de
+        // 2,5 - e o pulo encadeado do bunny hop pede pousar no ritmo dela.
+        var pedra = Column(root, "Pedra2", -8f, 117f, 5f, 108, bottom: -4.5f);
+        MakeMoving(pedra, new Vector3(0f, 2.5f, 0f), travelSeconds: 1.6f, waitSeconds: 0.6f, phase: 0f);
+
         Column(root, "Pedra3", -12.5f, 113.5f, 5f, 109);
 
         Rock(root, "Torre", -24f, 107f, 8f, 3.6f, 6, 110, LavaLetalArt.RockGray);
+
+        // Hélice de um braço na torre, girando ao contrário da do pátio. A
+        // torre é onde se pousa do pulo duplo e de onde se sai para a primeira
+        // bolha: com um braço só, cada ponto da ilha fica livre cinco de cada
+        // seis segundos, e o jogador escolhe pousar no lado vazio.
+        LevelKit.Blade(root, new Vector3(-24f, 8f, 107f), -60f, 0.25f, arms: 1);
     }
 
     /// <summary>
@@ -432,16 +495,22 @@ public static class VolcanoLevelBuilder
         return go;
     }
 
-    /// <summary>Coluna de basalto hexagonal, do tamanho de um bloco de 2 m.</summary>
-    static void Column(Transform root, string name, float x, float z, float top, int seed)
+    /// <summary>
+    /// Coluna de basalto hexagonal, do tamanho de um bloco de 2 m.
+    /// <paramref name="bottom"/> vai mais fundo nas que sobem e descem, para a
+    /// base nunca aparecer acima da lava.
+    /// </summary>
+    static GameObject Column(Transform root, string name, float x, float z, float top, int seed,
+                             float bottom = kBedrock)
     {
         float turn = (float)new System.Random(seed).NextDouble() * 60f;
         var ring = LowPolyMesh.Regular(6, 1.2f, turn);
 
-        var go = Solid(root, name, LowPolyMesh.Prism(ring, kBedrock, top, LavaLetalArt.RockTile, 1f, name),
+        var go = Solid(root, name, LowPolyMesh.Prism(ring, bottom, top, LavaLetalArt.RockTile, 1f, name),
                        LavaLetalArt.RockBurnt, LavaLetalArt.RockSide, new Vector3(x, 0f, z), 0f);
         AddMeshCollider(go);
         Register(name, top, World(go.transform, ring));
+        return go;
     }
 
     /// <summary>
@@ -452,8 +521,8 @@ public static class VolcanoLevelBuilder
     /// ficam embaixo da placa, onde ninguém pisa, e as faixas ficam dentro do
     /// contorno do tampo, então não mudam onde a bruxa pode pousar.
     /// </summary>
-    static void Plate(Transform root, string name, float x, float z, float top, float sizeX, float sizeZ,
-                      float yaw, Material material, bool trim, bool supports, float thickness = 0.6f)
+    static GameObject Plate(Transform root, string name, float x, float z, float top, float sizeX, float sizeZ,
+                            float yaw, Material material, bool trim, bool supports, float thickness = 0.6f)
     {
         var rectangle = LowPolyMesh.Rectangle(sizeX, sizeZ);
         var go = Solid(root, name, LowPolyMesh.Prism(rectangle, -thickness, 0f, LavaLetalArt.MetalTile, 1f, name),
@@ -487,6 +556,99 @@ public static class VolcanoLevelBuilder
         }
 
         Register(name, top, World(go.transform, rectangle));
+        return go;
+    }
+
+    /// <summary>
+    /// Põe uma peça já montada para ir e voltar, com a MovingPlatform da fase 1.
+    ///
+    /// É o mesmo componente de lá, então carregar a bruxa e herdar a velocidade
+    /// no salto já funcionam; e no rewind o relógio dela anda para trás, então
+    /// a plataforma volta para onde estava naquele instante.
+    ///
+    /// Tira as marcas de estático da peça inteira. Com batching estático a
+    /// malha é fundida no início da cena e fica parada no lugar, mesmo com o
+    /// transform andando - a colisão iria e a imagem não.
+    ///
+    /// Registra também o contorno na outra ponta do percurso, para a validação
+    /// medir os saltos nas duas posições.
+    /// </summary>
+    static void MakeMoving(GameObject go, Vector3 offset, float travelSeconds, float waitSeconds, float phase)
+    {
+        foreach (var t in go.GetComponentsInChildren<Transform>(true))
+            GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+
+        var move = go.AddComponent<MovingPlatform>();
+        LevelKit.SetVector(move, "offset", offset);
+        LevelKit.SetFloat(move, "travelSeconds", travelSeconds);
+        LevelKit.SetFloat(move, "waitSeconds", waitSeconds);
+        LevelKit.SetFloat(move, "phase", phase);
+
+        if (!s_Footprints.TryGetValue(go.name, out var start)) return;
+
+        var shifted = new Vector2[start.poly.Length];
+        for (int i = 0; i < shifted.Length; i++)
+            shifted[i] = start.poly[i] + new Vector2(offset.x, offset.z);
+
+        s_FarEnds[go.name] = (start.top + offset.y, shifted);
+    }
+
+    /// <summary>
+    /// Gêiser de lava: boca de pedra, brasa no fundo, jato e a cúpula do aviso.
+    ///
+    /// O jato é um prisma de 1 m com o pivô na base; o LavaGeyser estica a
+    /// escala Y até a altura do momento. O gatilho letal fica na raiz, com um
+    /// corpo cinemático - ele muda de tamanho a cada quadro, e collider sem
+    /// corpo é tratado como cenário parado.
+    /// </summary>
+    static void Geyser(Transform root, string name, Vector3 basePosition, float idleSeconds, float phase,
+                       float jetHeight = 8f)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(root, false);
+        go.transform.localPosition = basePosition;
+
+        Decor(go.transform, "Boca", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 1.6f, 22.5f), 0f, 0.25f, 1f, 0.85f),
+              LavaLetalArt.RockSide, Vector3.zero);
+        var ember = Solid(go.transform, "Brasa", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 1.1f, 22.5f), 0.2f, 0.27f, 1f),
+                          LavaLetalArt.Ember, LavaLetalArt.Ember, Vector3.zero, 0f);
+
+        var jet = new GameObject("Jato").transform;
+        jet.SetParent(go.transform, false);
+        jet.localPosition = new Vector3(0f, 0.25f, 0f);
+        var column = Solid(jet, "Coluna", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 0.9f, 22.5f), 0f, 1f, 2f),
+                           LavaLetalArt.Jet, LavaLetalArt.Jet, Vector3.zero, 0f);
+        column.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        var dome = new GameObject("Bolhas").transform;
+        dome.SetParent(go.transform, false);
+        dome.localPosition = new Vector3(0f, 0.25f, 0f);
+        Solid(dome, "Cupula", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 0.8f, 22.5f), 0f, 0.6f, 1f, 0.45f),
+              LavaLetalArt.Jet, LavaLetalArt.Jet, Vector3.zero, 0f);
+
+        foreach (var t in go.GetComponentsInChildren<Transform>(true))
+            GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+
+        var area = go.AddComponent<BoxCollider>();
+        area.isTrigger = true;
+        LevelKit.AddKinematicBody(go);
+
+        var source = go.AddComponent<AudioSource>();
+        source.playOnAwake = false;
+        source.spatialBlend = 1f;
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = 4f;
+        source.maxDistance = 45f;
+
+        var geyser = go.AddComponent<LavaGeyser>();
+        EditorSetupUtil.SetReference(geyser, "jet", jet);
+        EditorSetupUtil.SetReference(geyser, "hazard", area);
+        EditorSetupUtil.SetReference(geyser, "vent", ember.GetComponent<MeshRenderer>());
+        EditorSetupUtil.SetReference(geyser, "dome", dome);
+        EditorSetupUtil.SetReference(geyser, "audioSource", source);
+        LevelKit.SetFloat(geyser, "idleSeconds", idleSeconds);
+        LevelKit.SetFloat(geyser, "phase", phase);
+        LevelKit.SetFloat(geyser, "jetHeight", jetHeight);
     }
 
     /// <summary>A bolha da Torre de Bolhas, igual: mesmo prefab, mesmo quique, mesmo rewind.</summary>
@@ -719,20 +881,33 @@ public static class VolcanoLevelBuilder
                     continue;
                 }
 
-                float gap = Gap(a.poly, b.poly);
-                float dy = b.top - a.top;
-                float need = gap + 0.8f;
-                float single = jump.Reach(dy, null);
-                float twin = jump.Reach(dy, 0.5f);
+                // Plataforma móvel entra com as duas pontas do percurso. O salto
+                // precisa fechar em pelo menos uma - é o momento de pular - e o
+                // relatório mostra também a pior, para se ver quanto o tempo
+                // do salto importa ali.
+                var froms = Variants(route[i], a);
+                var tos = Variants(route[i + 1], b);
 
-                string verdict;
-                if (single > 0f && need <= 0.75f * single) verdict = "simples, folgado";
-                else if (single > 0f && need <= 0.95f * single) verdict = "simples, no limite";
-                else if (need <= 0.85f * twin) verdict = "PEDE PULO DUPLO";
-                else { verdict = "IMPOSSÍVEL"; impossible++; }
+                (int rank, string text, float gap, float dy, float single, float twin) best = (99, "", 0, 0, 0, 0);
+                (int rank, string text, float gap, float dy, float single, float twin) worst = (-1, "", 0, 0, 0, 0);
 
-                report.Append($"  {route[i]} -> {route[i + 1]}: vão {gap:0.0} m, desnível {dy:+0.0;-0.0;0.0} m " +
-                              $"(alcance {single:0.0} / {twin:0.0} m) - {verdict}\n");
+                foreach (var f in froms)
+                foreach (var t in tos)
+                {
+                    // Mesma classificação desempata pelo vão: o melhor é o mais
+                    // curto, o pior é o mais longo.
+                    var r = Judge(jump, Gap(f.poly, t.poly), t.top - f.top);
+                    if (r.rank < best.rank || (r.rank == best.rank && r.gap < best.gap)) best = r;
+                    if (r.rank > worst.rank || (r.rank == worst.rank && r.gap > worst.gap)) worst = r;
+                }
+
+                if (best.rank >= 3) impossible++;
+
+                string line = $"  {route[i]} -> {route[i + 1]}: vão {best.gap:0.0} m, desnível {best.dy:+0.0;-0.0;0.0} m " +
+                              $"(alcance {best.single:0.0} / {best.twin:0.0} m) - {best.text}";
+                if (froms.Count * tos.Count > 1)
+                    line += $"; na pior ponta: vão {worst.gap:0.0} m, desnível {worst.dy:+0.0;-0.0;0.0} m - {worst.text}";
+                report.Append(line + "\n");
             }
         }
 
@@ -746,6 +921,27 @@ public static class VolcanoLevelBuilder
             Debug.LogWarning(report.Append($"\n{impossible} salto(s) impossível(is).").ToString());
         else
             Debug.Log(report.ToString());
+    }
+
+    /// <summary>A peça na posição de construção e, se ela anda, na outra ponta.</summary>
+    static List<(float top, Vector2[] poly)> Variants(string name, (float top, Vector2[] poly) start)
+    {
+        var list = new List<(float, Vector2[])> { start };
+        if (s_FarEnds.TryGetValue(name, out var far)) list.Add(far);
+        return list;
+    }
+
+    /// <summary>Classifica um salto: 0 folgado, 1 no limite, 2 pede duplo, 3 impossível.</summary>
+    static (int rank, string text, float gap, float dy, float single, float twin) Judge(JumpModel jump, float gap, float dy)
+    {
+        float need = gap + 0.8f;
+        float single = jump.Reach(dy, null);
+        float twin = jump.Reach(dy, 0.5f);
+
+        if (single > 0f && need <= 0.75f * single) return (0, "simples, folgado", gap, dy, single, twin);
+        if (single > 0f && need <= 0.95f * single) return (1, "simples, no limite", gap, dy, single, twin);
+        if (need <= 0.85f * twin) return (2, "PEDE PULO DUPLO", gap, dy, single, twin);
+        return (3, "IMPOSSÍVEL", gap, dy, single, twin);
     }
 
     /// <summary>

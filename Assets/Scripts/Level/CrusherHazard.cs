@@ -39,6 +39,11 @@ public class CrusherHazard : MonoBehaviour
     void TryCrush(Collider other)
     {
         if (_platform == null) return;
+
+        // No rewind a prensa anda para trás, e uma subida desfeita é uma
+        // descida na tela - sem esta trava ela mataria quem só está voltando
+        // no tempo.
+        if (_platform.IsRewinding) return;
         if (_platform.Velocity.y > -lethalSpeed) return;
 
         var respawn = LevelRespawn.Instance;

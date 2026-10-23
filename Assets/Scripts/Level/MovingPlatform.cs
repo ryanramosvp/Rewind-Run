@@ -10,6 +10,12 @@ using UnityEngine;
 /// Roda antes do jogador (execution order) porque ele lê o deslocamento dela
 /// para ser carregado junto - se a ordem fosse a inversa, ele leria o valor do
 /// frame anterior e escorregaria um frame atrás da plataforma.
+///
+/// No rewind o relógio anda para trás, como o da <see cref="RotatingHazard"/>.
+/// A posição é função pura do tempo, então inverter o relógio devolve a
+/// plataforma exatamente onde ela estava naquele instante. Antes ela congelava
+/// durante o rewind: a bruxa voltava três segundos e a plataforma não, e o
+/// jogador podia ser devolvido a um ponto onde a plataforma já não estava.
 /// </summary>
 [DefaultExecutionOrder(-200)]
 public class MovingPlatform : MonoBehaviour
@@ -17,11 +23,19 @@ public class MovingPlatform : MonoBehaviour
     [Tooltip("Deslocamento em relação à posição inicial, no fim do percurso.")]
     [SerializeField] Vector3 offset = new Vector3(0f, 0f, 8f);
 
-    [Tooltip("Tempo de uma travessia, só a parte em movimento.")]
+    [Tooltip("Tempo da ida, só a parte em movimento.")]
     [SerializeField, Min(0.1f)] float travelSeconds = 3f;
 
-    [Tooltip("Parada em cada ponta. É o que dá tempo de embarcar sem correria.")]
+    [Tooltip("Parada na ponta de partida. É o que dá tempo de embarcar sem correria.")]
     [SerializeField, Min(0f)] float waitSeconds = 0.8f;
+
+    [Tooltip("Tempo da volta. Zero usa o mesmo da ida. A prensa usa uma volta " +
+             "mais lenta: cai depressa e sobe devagar, para a janela de passagem " +
+             "ser lida.")]
+    [SerializeField, Min(0f)] float returnSeconds;
+
+    [Tooltip("Parada na ponta de chegada. Negativo usa a mesma da partida.")]
+    [SerializeField] float endWaitSeconds = -1f;
 
     [Tooltip("Defasagem inicial, de 0 a 1 do ciclo. Serve para várias plataformas " +
              "não se moverem em bloco.")]
@@ -42,18 +56,21 @@ public class MovingPlatform : MonoBehaviour
         _time = phase * CycleSeconds;
     }
 
-    float CycleSeconds => (travelSeconds + waitSeconds) * 2f;
+    float ReturnSeconds => returnSeconds > 0f ? returnSeconds : travelSeconds;
+    float EndWaitSeconds => endWaitSeconds >= 0f ? endWaitSeconds : waitSeconds;
+
+    float CycleSeconds => waitSeconds + travelSeconds + EndWaitSeconds + ReturnSeconds;
+
+    /// <summary>Está voltando no tempo agora. Quem mata pelo movimento consulta isto.</summary>
+    public bool IsRewinding { get; private set; }
 
     void Update()
     {
-        Delta = Vector3.zero;
-        Velocity = Vector3.zero;
-
-        // Durante o rewind quem manda no transform é o RewindableTransform.
         var manager = RewindManager.Instance;
-        if (manager != null && manager.IsRewinding) return;
+        IsRewinding = manager != null && manager.IsRewinding;
 
-        _time += Time.deltaTime;
+        if (IsRewinding) _time -= Time.deltaTime * manager.RewindSpeed;
+        else _time += Time.deltaTime;
 
         Vector3 next = _start + offset * Progress(Mathf.Repeat(_time, CycleSeconds));
 
@@ -72,9 +89,9 @@ public class MovingPlatform : MonoBehaviour
         if (t < travelSeconds) return t / travelSeconds;
         t -= travelSeconds;
 
-        if (t < waitSeconds) return 1f;
-        t -= waitSeconds;
+        if (t < EndWaitSeconds) return 1f;
+        t -= EndWaitSeconds;
 
-        return 1f - t / travelSeconds;
+        return 1f - t / ReturnSeconds;
     }
 }

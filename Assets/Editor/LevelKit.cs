@@ -162,8 +162,13 @@ public static class LevelKit
     /// lateral para do lado de fora e nunca chega a toca-lo; so morre quem esta
     /// debaixo quando a face de baixo passa por cima dele.
     /// </summary>
-    public static void Crusher(Transform root, float x, float z, float topY, float restY,
-                               float phase)
+    /// <param name="descendSeconds">Tempo da descida - a parte que mata.</param>
+    /// <param name="riseSeconds">Tempo da subida. Zero usa o da descida, como na fase 1.</param>
+    /// <param name="topWait">Espera no alto.</param>
+    /// <param name="bottomWait">Espera embaixo. Negativo usa a do alto.</param>
+    public static GameObject Crusher(Transform root, float x, float z, float topY, float restY,
+                                     float phase, float descendSeconds = 0.45f, float riseSeconds = 0f,
+                                     float topWait = 1f, float bottomWait = -1f)
     {
         var go = new GameObject($"Prensa_{z:0}_{x:0.#}");
         go.transform.SetParent(root, false);
@@ -189,9 +194,13 @@ public static class LevelKit
 
         var move = go.AddComponent<MovingPlatform>();
         SetVector(move, "offset", new Vector3(0f, restY - topY, 0f));
-        SetFloat(move, "travelSeconds", 0.45f);
-        SetFloat(move, "waitSeconds", 1f);
+        SetFloat(move, "travelSeconds", descendSeconds);
+        SetFloat(move, "waitSeconds", topWait);
+        SetFloat(move, "returnSeconds", riseSeconds);
+        SetFloat(move, "endWaitSeconds", bottomWait);
         SetFloat(move, "phase", phase);
+
+        return go;
     }
 
     /// <summary>
@@ -201,8 +210,10 @@ public static class LevelKit
     /// colisao solida de proposito: e um obstaculo honesto no meio do corredor,
     /// nao um perigo, e serve de referencia para ler onde a barra esta.
     /// </summary>
-    public static void Blade(Transform root, Vector3 position, float degreesPerSecond,
-                             float phase)
+    /// <param name="arms">1 ou 2 braços. Com um só, cada ponto da varredura fica
+    /// livre o dobro do tempo - é a versão para ilhas pequenas.</param>
+    public static GameObject Blade(Transform root, Vector3 position, float degreesPerSecond,
+                                   float phase, int arms = 2)
     {
         var go = new GameObject($"Helice_{position.z:0}");
         go.transform.SetParent(root, false);
@@ -214,11 +225,14 @@ public static class LevelKit
         axle.transform.SetParent(go.transform, false);
 
         DisableColliders(Place(axle.transform, "red", "barrier_2x1x4", new Vector3(1.8f, 0f, 0f)));
-        DisableColliders(Place(axle.transform, "red", "barrier_2x1x4", new Vector3(-1.8f, 0f, 0f)));
+        if (arms > 1)
+            DisableColliders(Place(axle.transform, "red", "barrier_2x1x4", new Vector3(-1.8f, 0f, 0f)));
 
+        // O gatilho cobre só os braços que existem: de 0,45 m (fora do poste)
+        // até a ponta, de um lado ou dos dois.
         var area = axle.AddComponent<BoxCollider>();
-        area.center = new Vector3(0f, 2f, 0f);
-        area.size = new Vector3(5.7f, 4f, 1.1f);
+        area.center = arms > 1 ? new Vector3(0f, 2f, 0f) : new Vector3(1.65f, 2f, 0f);
+        area.size = arms > 1 ? new Vector3(5.7f, 4f, 1.1f) : new Vector3(2.4f, 4f, 1.1f);
         area.isTrigger = true;
 
         AddKinematicBody(axle);
@@ -228,6 +242,8 @@ public static class LevelKit
         SetVector(spin, "axis", Vector3.up);
         SetFloat(spin, "degreesPerSecond", degreesPerSecond);
         SetFloat(spin, "phase", phase);
+
+        return go;
     }
 
     /// <summary>
