@@ -112,11 +112,11 @@ public static class LevelKit
     /// Monta tudo que não é geometria: jogador, câmera, rewind, sessão, HUD e
     /// telas de fim, já ligados entre si.
     /// </summary>
-    public static GameObject AssembleSystems(float gold, float silver, float bronze,
-                                             string nextLevelScene = null)
+    /// <param name="rankSeconds">Limites de S, A, B, C e D, em segundos e crescendo.</param>
+    public static GameObject AssembleSystems(float[] rankSeconds, string nextLevelScene = null)
     {
         var player = AssembleSystemsWithoutSession(nextLevelScene);
-        CreateSession(gold, silver, bronze);
+        CreateSession(rankSeconds);
         return player;
     }
 
@@ -268,14 +268,20 @@ public static class LevelKit
                                       0f, pitch, distance);
     }
 
-    /// <summary>Placar da fase. Os tempos de medalha são de cada fase, não globais.</summary>
-    public static void CreateSession(float gold, float silver, float bronze)
+    /// <summary>Placar da fase. Os tempos de rank são de cada fase, não globais.</summary>
+    public static void CreateSession(float[] rankSeconds)
     {
-        var session = new GameObject("Sessao").AddComponent<GameSession>();
+        if (rankSeconds == null || rankSeconds.Length != Ranks.Timed)
+            Debug.LogError($"A tabela de ranks precisa de {Ranks.Timed} tempos (S, A, B, C, D).");
 
-        SetFloat(session, "goldSeconds", gold);
-        SetFloat(session, "silverSeconds", silver);
-        SetFloat(session, "bronzeSeconds", bronze);
+        for (int i = 1; rankSeconds != null && i < rankSeconds.Length; i++)
+        {
+            if (rankSeconds[i] <= rankSeconds[i - 1])
+                Debug.LogError("Os tempos de rank precisam crescer de S para D.");
+        }
+
+        var session = new GameObject("Sessao").AddComponent<GameSession>();
+        EditorSetupUtil.SetFloats(session, "rankSeconds", rankSeconds);
     }
 
     /// <summary>Cronômetro, barra de velocidade e contador de corrente.</summary>
@@ -408,17 +414,12 @@ public static class LevelKit
         var screen = canvas.gameObject.AddComponent<EndScreen>();
 
         var death = BuildDeath(canvas.transform, out var deathText);
-        var victory = BuildVictory(canvas.transform, out var victoryText, out var medal,
-                                   out var timeValue, out var fallsValue, out var bestValue);
+        var victory = BuildVictory(canvas.transform, screen, out var victoryText);
 
         EditorSetupUtil.SetReference(screen, "deathPanel", death);
         EditorSetupUtil.SetReference(screen, "victoryPanel", victory);
         EditorSetupUtil.SetReference(screen, "deathSummary", deathText);
         EditorSetupUtil.SetReference(screen, "victorySummary", victoryText);
-        EditorSetupUtil.SetReference(screen, "medalLabel", medal);
-        EditorSetupUtil.SetReference(screen, "timeValue", timeValue);
-        EditorSetupUtil.SetReference(screen, "fallsValue", fallsValue);
-        EditorSetupUtil.SetReference(screen, "bestValue", bestValue);
 
         if (!string.IsNullOrEmpty(nextLevelScene))
             EditorSetupUtil.SetString(screen, "nextLevelScene", nextLevelScene);
@@ -450,31 +451,103 @@ public static class LevelKit
         return holder.gameObject;
     }
 
-    public static GameObject BuildVictory(Transform parent, out Text summary, out Text medal,
-                                   out Text timeValue, out Text fallsValue, out Text bestValue)
+    /// <summary>
+    /// Tela de vitória, em quatro faixas de cima para baixo: o veredito (rank
+    /// e os três números), a escada de ranks, o registro do save e as teclas.
+    ///
+    /// A escada é horizontal, de S a F, porque é uma régua: lida da esquerda
+    /// para a direita, o degrau aceso diz onde se está e os vizinhos dizem
+    /// quanto falta e quanto sobrou, sem precisar ler uma tabela.
+    /// </summary>
+    public static GameObject BuildVictory(Transform parent, EndScreen screen, out Text summary)
     {
         var holder = UiBuilder.CreateStretched(parent, "TelaDeVitoria");
-        UiBuilder.CreateFullScreen(holder, "Tintura", new Color(0.05f, 0.03f, 0.07f, 0.88f));
+        UiBuilder.CreateFullScreen(holder, "Tintura", new Color(0.05f, 0.03f, 0.07f, 0.9f));
 
+        // 1500 x 920 numa referência de 1920 x 1080: sobra 80 px em cima e
+        // embaixo, e a escada de seis degraus cabe sem espremer os tempos.
         var card = UiBuilder.CreateCard(holder, "Cartao", "CHEGOU", UiBuilder.Swatch.Ouro,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 30f),
-                                        new Vector2(1100f, 620f), titleSize: 56);
+                                        new Vector2(0.5f, 0.5f), Vector2.zero,
+                                        new Vector2(1500f, 920f), titleSize: 56);
 
-        medal = UiBuilder.CreateText(card, "Medalha", string.Empty, 104, UiBuilder.Gold,
-                                     new Vector2(0.5f, 1f), new Vector2(0f, -220f),
-                                     new Vector2(1000f, 130f), style: FontStyle.Bold);
+        // --- veredito ---------------------------------------------------
+        UiBuilder.CreatePanel(card, "FundoDoRank", new Color(0.16f, 0.18f, 0.19f, 0.95f),
+                              new Vector2(0.5f, 0.5f), new Vector2(-545f, 205f), new Vector2(300f, 280f));
+        UiBuilder.CreateText(card, "RotuloDoRank", "RANK", 30, UiBuilder.Ash,
+                             new Vector2(0.5f, 0.5f), new Vector2(-545f, 315f), new Vector2(260f, 40f),
+                             style: FontStyle.Bold);
+        var rank = UiBuilder.CreateText(card, "Rank", "-", 200, UiBuilder.Gold,
+                                        new Vector2(0.5f, 0.5f), new Vector2(-545f, 185f),
+                                        new Vector2(280f, 230f), style: FontStyle.Bold);
 
-        // Tres blocos lado a lado, para comparar de relance.
-        timeValue = UiBuilder.CreateStat(card, "Tempo", "TEMPO", UiBuilder.Swatch.Areia,
-                                         new Vector2(-320f, -80f), new Vector2(300f, 150f));
-        fallsValue = UiBuilder.CreateStat(card, "Mortes", "MORTES", UiBuilder.Swatch.Terracota,
-                                          new Vector2(0f, -80f), new Vector2(300f, 150f));
-        bestValue = UiBuilder.CreateStat(card, "Recorde", "RECORDE", UiBuilder.Swatch.Ouro,
-                                         new Vector2(320f, -80f), new Vector2(300f, 150f));
+        // Três blocos lado a lado, para comparar de relance.
+        var timeValue = UiBuilder.CreateStat(card, "Tempo", "TEMPO", UiBuilder.Swatch.Areia,
+                                             new Vector2(-185f, 255f), new Vector2(320f, 150f));
+        var fallsValue = UiBuilder.CreateStat(card, "Mortes", "MORTES", UiBuilder.Swatch.Terracota,
+                                              new Vector2(155f, 255f), new Vector2(320f, 150f));
+        var bestValue = UiBuilder.CreateStat(card, "Recorde", "RECORDE ANTERIOR", UiBuilder.Swatch.Ouro,
+                                             new Vector2(495f, 255f), new Vector2(320f, 150f));
 
-        summary = UiBuilder.CreateText(card, "Dicas", string.Empty, 32, UiBuilder.Ash,
-                                       new Vector2(0.5f, 0f), new Vector2(0f, 76f),
-                                       new Vector2(980f, 100f));
+        // Duas linhas de altura: a segunda só aparece quando o recorde cai.
+        var nextRank = UiBuilder.CreateText(card, "ProximoRank", string.Empty, 34, UiBuilder.Sand,
+                                            new Vector2(0.5f, 0.5f), new Vector2(155f, 110f),
+                                            new Vector2(1000f, 112f));
+
+        // --- escada -----------------------------------------------------
+        const float stepWidth = 214f;
+        const float stepGap = 24f;
+        float firstX = -(stepWidth + stepGap) * 2.5f;
+
+        var panels = new Image[6];
+        var letters = new Text[6];
+        var limits = new Text[6];
+        var deltas = new Text[6];
+
+        for (int i = 0; i < 6; i++)
+        {
+            var step = (Rank)i;
+            float x = firstX + i * (stepWidth + stepGap);
+
+            panels[i] = UiBuilder.CreatePanel(card, $"Degrau_{step}", new Color(0.16f, 0.18f, 0.19f, 0.95f),
+                                              new Vector2(0.5f, 0.5f), new Vector2(x, -55f),
+                                              new Vector2(stepWidth, 200f));
+
+            letters[i] = UiBuilder.CreateText(card, $"Letra_{step}", step.ToString(), 70, Ranks.ColorOf(step),
+                                 new Vector2(0.5f, 0.5f), new Vector2(x, 0f),
+                                 new Vector2(stepWidth - 20f, 86f), style: FontStyle.Bold);
+
+            limits[i] = UiBuilder.CreateText(card, $"Limite_{step}", string.Empty, 26, UiBuilder.Ash,
+                                             new Vector2(0.5f, 0.5f), new Vector2(x, -78f),
+                                             new Vector2(stepWidth - 16f, 40f));
+
+            deltas[i] = UiBuilder.CreateText(card, $"Diferenca_{step}", string.Empty, 34, UiBuilder.Ash,
+                                             new Vector2(0.5f, 0.5f), new Vector2(x, -122f),
+                                             new Vector2(stepWidth - 16f, 46f), style: FontStyle.Bold);
+        }
+
+        // --- registro ---------------------------------------------------
+        UiBuilder.CreateText(card, "RotuloDoRegistro", "SEU REGISTRO NESTA FASE", 28, UiBuilder.Gold,
+                             new Vector2(0.5f, 0.5f), new Vector2(0f, -200f), new Vector2(1380f, 40f),
+                             style: FontStyle.Bold);
+        var record = UiBuilder.CreateText(card, "Registro", string.Empty, 30, UiBuilder.Ash,
+                                          new Vector2(0.5f, 0.5f), new Vector2(0f, -268f),
+                                          new Vector2(1380f, 90f));
+
+        // --- teclas -----------------------------------------------------
+        summary = UiBuilder.CreateText(card, "Dicas", string.Empty, 30, UiBuilder.Ash,
+                                       new Vector2(0.5f, 0f), new Vector2(0f, 56f),
+                                       new Vector2(1380f, 60f));
+
+        EditorSetupUtil.SetReference(screen, "rankLabel", rank);
+        EditorSetupUtil.SetReference(screen, "timeValue", timeValue);
+        EditorSetupUtil.SetReference(screen, "fallsValue", fallsValue);
+        EditorSetupUtil.SetReference(screen, "bestValue", bestValue);
+        EditorSetupUtil.SetReference(screen, "nextRankLabel", nextRank);
+        EditorSetupUtil.SetReference(screen, "recordLabel", record);
+        EditorSetupUtil.SetReferences(screen, "ladderPanels", panels);
+        EditorSetupUtil.SetReferences(screen, "ladderLetters", letters);
+        EditorSetupUtil.SetReferences(screen, "ladderLimits", limits);
+        EditorSetupUtil.SetReferences(screen, "ladderDeltas", deltas);
 
         return holder.gameObject;
     }
@@ -490,10 +563,10 @@ public static class LevelKit
         light.color = new Color(1f, 0.93f, 0.85f);
         light.shadows = LightShadows.Soft;
 
-        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.45f, 0.35f, 0.35f);
-        RenderSettings.ambientEquatorColor = new Color(0.5f, 0.3f, 0.22f);
-        RenderSettings.ambientGroundColor = new Color(0.6f, 0.26f, 0.12f);
+        // Céu vermelho e névoa da Terra da Lava Letal, iguais em todas as
+        // fases: o mundo é um só, e o céu azul padrão do Unity sobre um mar de
+        // lava parecia cenário de outro jogo.
+        LavaLetalArt.ApplyAtmosphere();
     }
 
     public static GameObject CreatePlayer()

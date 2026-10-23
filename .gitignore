@@ -112,3 +112,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Backups de cena que o Unity cria ao se recuperar de um travamento
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

@@ -3,8 +3,8 @@ using UnityEngine;
 /// <summary>
 /// Preferências do jogador, guardadas entre sessões.
 ///
-/// Usa PlayerPrefs porque são duas ou três opções: um arquivo de save próprio
-/// só se justifica quando há dado estruturado, e aqui não há.
+/// Usa PlayerPrefs porque são duas ou três opções soltas. Os recordes, que são
+/// dado estruturado, ficam no arquivo do <see cref="SaveSystem"/>.
 /// </summary>
 public static class GameSettings
 {
@@ -72,21 +72,4 @@ public static class GameSettings
 
     /// <summary>Avisa quem estiver na tela para se redesenhar na hora.</summary>
     public static event System.Action Changed;
-
-    /// <summary>Melhor tempo de uma fase, em segundos. Zero quando ainda não há.</summary>
-    public static float GetBestTime(string levelId) =>
-        PlayerPrefs.GetFloat(BestKey(levelId), 0f);
-
-    /// <summary>Guarda o tempo se ele for melhor. Devolve true quando houve recorde.</summary>
-    public static bool TrySetBestTime(string levelId, float seconds)
-    {
-        float best = GetBestTime(levelId);
-        if (best > 0f && seconds >= best) return false;
-
-        PlayerPrefs.SetFloat(BestKey(levelId), seconds);
-        PlayerPrefs.Save();
-        return true;
-    }
-
-    static string BestKey(string levelId) => $"rr.best.{levelId}";
 }

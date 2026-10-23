@@ -4,8 +4,8 @@ using UnityEngine.UI;
 /// <summary>
 /// Cronômetro e medidor de velocidade durante a fase.
 ///
-/// O cronômetro muda de cor conforme a medalha que o tempo atual ainda alcança.
-/// Isso importa numa corrida: saber "estou perdendo o ouro" enquanto ainda dá
+/// O cronômetro muda de cor conforme o rank que o tempo atual ainda alcança.
+/// Isso importa numa corrida: saber "estou perdendo o S" enquanto ainda dá
 /// para correr atrás é informação útil; descobrir no fim, não.
 ///
 /// Não há mais contador de corrente. O bunny hop é mecânica escondida: quem
@@ -54,7 +54,7 @@ public class SpeedrunHud : MonoBehaviour
             float elapsed = session.Elapsed;
 
             timerLabel.text = GameSession.FormatTime(elapsed);
-            timerLabel.color = GameSession.ColorOf(session.MedalFor(elapsed));
+            timerLabel.color = Ranks.ColorOf(session.RankFor(elapsed));
         }
 
         if (player == null || !GameSettings.ShowSpeed) return;

@@ -1,21 +1,12 @@
 using UnityEngine;
 
-/// <summary>Medalha conquistada pelo tempo da corrida.</summary>
-public enum Medal
-{
-    Nenhuma,
-    Bronze,
-    Prata,
-    Ouro,
-}
-
 /// <summary>
-/// Placar da tentativa atual: tempo, mortes e medalha.
+/// Placar da tentativa atual: tempo, mortes e rank.
 ///
 /// "Tentativa" é literal: o tempo mede a corrida em andamento e volta a zero a
 /// cada morte. Só as mortes atravessam as tentativas.
 ///
-/// Os tempos de medalha ficam aqui, na cena da fase, e não numa tabela global.
+/// Os tempos de rank ficam aqui, na cena da fase, e não numa tabela global.
 /// Cada fase tem o seu ritmo, e um número central obrigaria a lembrar de
 /// atualizá-lo toda vez que a geometria mudasse.
 /// </summary>
@@ -26,10 +17,9 @@ public class GameSession : MonoBehaviour
     [Tooltip("Identificador da fase para guardar o recorde. Vazio usa o nome da cena.")]
     [SerializeField] string levelId;
 
-    [Header("Tempos das medalhas, em segundos")]
-    [SerializeField, Min(1f)] float goldSeconds = 75f;
-    [SerializeField, Min(1f)] float silverSeconds = 100f;
-    [SerializeField, Min(1f)] float bronzeSeconds = 140f;
+    [Tooltip("Tempo limite, em segundos, de cada rank: S, A, B, C e D, nessa ordem e " +
+             "crescendo. Acima do último é F.")]
+    [SerializeField] float[] rankSeconds = { 20f, 25f, 31f, 40f, 55f };
 
     public int Deaths { get; private set; }
 
@@ -49,6 +39,9 @@ public class GameSession : MonoBehaviour
             ? UnityEngine.SceneManagement.SceneManager.GetActiveScene().name
             : levelId;
 
+    /// <summary>O que o save sabe desta fase, já com a corrida atual depois do fim.</summary>
+    public LevelRecord Record => SaveSystem.Get(LevelId);
+
     float _startTime;
     float _finalTime;
     bool _finished;
@@ -57,7 +50,7 @@ public class GameSession : MonoBehaviour
     {
         Instance = this;
         _startTime = Time.time;
-        PreviousBest = GameSettings.GetBestTime(LevelId);
+        PreviousBest = SaveSystem.Get(LevelId).bestTime;
     }
 
     void OnDestroy()
@@ -90,36 +83,32 @@ public class GameSession : MonoBehaviour
         _finalTime = Time.time - _startTime;
         _finished = true;
 
-        IsNewRecord = GameSettings.TrySetBestTime(LevelId, _finalTime);
+        IsNewRecord = SaveSystem.RecordRun(LevelId, _finalTime, Deaths);
     }
 
-    public Medal EarnedMedal => MedalFor(_finished ? _finalTime : Elapsed);
+    public Rank EarnedRank => RankFor(Elapsed);
 
-    public Medal MedalFor(float seconds)
+    public Rank RankFor(float seconds)
     {
-        if (seconds <= goldSeconds) return Medal.Ouro;
-        if (seconds <= silverSeconds) return Medal.Prata;
-        if (seconds <= bronzeSeconds) return Medal.Bronze;
+        for (int i = 0; i < Ranks.Timed && i < rankSeconds.Length; i++)
+        {
+            if (seconds <= rankSeconds[i]) return (Rank)i;
+        }
 
-        return Medal.Nenhuma;
+        return Rank.F;
     }
 
-    /// <summary>Tempo limite da medalha seguinte, para a HUD mostrar o alvo.</summary>
-    public float NextTarget(float seconds)
+    /// <summary>
+    /// Tempo limite de um rank. O F não tem limite próprio e devolve o do D,
+    /// que é a linha que ele não alcançou.
+    /// </summary>
+    public float LimitOf(Rank rank)
     {
-        if (seconds <= goldSeconds) return goldSeconds;
-        if (seconds <= silverSeconds) return silverSeconds;
+        if (rankSeconds.Length == 0) return 0f;
 
-        return bronzeSeconds;
+        int index = Mathf.Min((int)rank, Ranks.Timed - 1);
+        return rankSeconds[Mathf.Min(index, rankSeconds.Length - 1)];
     }
-
-    public static Color ColorOf(Medal medal) => medal switch
-    {
-        Medal.Ouro => new Color(1f, 0.83f, 0.3f),
-        Medal.Prata => new Color(0.82f, 0.85f, 0.9f),
-        Medal.Bronze => new Color(0.84f, 0.53f, 0.3f),
-        _ => new Color(0.6f, 0.58f, 0.56f),
-    };
 
     /// <summary>Formato mm:ss,cc - centésimos porque platformer de tempo se mede assim.</summary>
     public static string FormatTime(float seconds)
@@ -128,5 +117,22 @@ public class GameSession : MonoBehaviour
         float rest = seconds - minutes * 60f;
 
         return $"{minutes:00}:{rest:00.00}".Replace('.', ',');
+    }
+
+    /// <summary>
+    /// Diferença com sinal: "-1,23" quando se chegou antes do limite, "+4,56"
+    /// quando depois. Acima de um minuto passa para mm:ss,cc, senão o número
+    /// vira uma contagem de segundos difícil de ler.
+    /// </summary>
+    public static string FormatDelta(float seconds)
+    {
+        string sign = seconds <= 0f ? "-" : "+";
+        float magnitude = Mathf.Abs(seconds);
+
+        string body = magnitude >= 60f
+            ? FormatTime(magnitude)
+            : magnitude.ToString("0.00").Replace('.', ',');
+
+        return sign + body;
     }
 }

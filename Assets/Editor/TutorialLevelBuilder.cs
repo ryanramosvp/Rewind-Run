@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// de ele já ter tudo que o tutorial pede: chão largo para andar, a parede da
 /// torre para o salto de parede e a espiral para a subida final.
 ///
-/// Não há placar nem medalha. Quem aprende não está correndo contra o tempo, e
+/// Não há placar nem rank. Quem aprende não está correndo contra o tempo, e
 /// um cronômetro na tela diria que está.
 /// </summary>
 public static class TutorialLevelBuilder

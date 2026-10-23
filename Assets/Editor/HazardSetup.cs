@@ -21,15 +21,25 @@ public static class HazardSetup
     /// </summary>
     const float kSurfaceHeight = -10f;
 
-    // A lava visível cobre o percurso (x de -4 a 6,5; z de -3 a 78) com folga
-    // generosa nas laterais, e nada além disso.
-    //
-    // Isto é otimização, não estética: o shader do pack calcula Voronoi e ruído
-    // procedural POR PIXEL, então o custo acompanha a área que a lava ocupa na
-    // tela. A laje anterior de 160x160 gastava GPU desenhando lava a 70 m de
-    // distância do caminho, onde ninguém olha.
+    // Medidas da laje de quem chama EnsureLava() sem argumentos.
     const float kVisibleWidth = 70f;
     const float kVisibleDepth = 115f;
+
+    /// <summary>
+    /// Lado mínimo da laje, em metros.
+    ///
+    /// As lajes já foram enxutas de propósito: o shader do pack calculava
+    /// ruído por pixel, e lava fora do caminho era GPU jogada fora. A lava de
+    /// hoje é URP Lit com uma textura de 128 px, e o custo de cobrir mais área
+    /// é desprezível. O que pesa agora é o contrário: com o céu vermelho, uma
+    /// borda de laje à vista corta o horizonte.
+    ///
+    /// 1200 m: as câmeras enxergam até 400 m e as fases têm até ~100 m do
+    /// centro à ponta, então a borda fica além do alcance da câmera de qualquer
+    /// ponto. Com 600 m ela ficava além da névoa, mas a quina da laje ainda
+    /// dobrava a linha do horizonte nas laterais da tela.
+    /// </summary>
+    public const float MinLavaSize = 1200f;
     const float kThickness = 4f;
 
     /// <summary>
@@ -63,8 +73,9 @@ public static class HazardSetup
     /// estouram. Somado ao custo por pixel de Voronoi e ruído procedural, ele
     /// custa caro para entregar um resultado pior neste caso.
     ///
-    /// O menu "Lava: alternar detalhada e simples" continua permitindo testar
-    /// o outro, sem mexer aqui.
+    /// Hoje o chapado só sobra como reserva: a laje é vestida com a lava da
+    /// fase 3 em <see cref="ApplyFlowingLava"/>. O menu que alternava os dois
+    /// saiu junto - ele trocava um material que a laje não usa mais.
     /// </summary>
     const bool kUseDetailedShader = false;
 
@@ -72,37 +83,6 @@ public static class HazardSetup
     // não destoar da paleta do cenário.
     static readonly Color kBaseColor = new Color(0.941f, 0.349f, 0.145f);      // #F05925
     static readonly Color kEmissionColor = new Color(0.965f, 0.549f, 0.122f);  // #F68C1F
-
-    /// <summary>
-    /// Troca entre o shader detalhado do pack e o material chapado.
-    ///
-    /// Serve de teste A/B: se o jogo destravar com o material simples, a culpa
-    /// do FPS é mesmo da lava; se continuar travando, o gargalo é outro e vale
-    /// procurar no Profiler antes de sacrificar o visual.
-    /// </summary>
-    [MenuItem("Rewind Run/Lava: alternar detalhada e simples", priority = 3)]
-    public static void ToggleLavaQuality()
-    {
-        var material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
-        if (material == null)
-        {
-            Debug.LogWarning($"Não achei {MaterialPath}. Rode 'Adicionar Lava e Reinício na Cena' primeiro.");
-            return;
-        }
-
-        bool goingDetailed = !IsDetailed(material);
-        ApplyMode(material, goingDetailed);
-
-        Debug.Log(goingDetailed
-            ? "Lava agora usa o shader detalhado do pack (mais pesado)."
-            : "Lava agora usa o material chapado (barato).");
-
-        EditorUtility.SetDirty(material);
-        AssetDatabase.SaveAssets();
-
-        var lava = FindExistingLava();
-        if (lava != null) SyncPulseComponent(lava, material);
-    }
 
     [MenuItem("Rewind Run/Adicionar Lava e Reinício na Cena", priority = 2)]
     public static void AddToOpenScene()
@@ -127,13 +107,24 @@ public static class HazardSetup
     /// O tamanho é argumento porque o custo do shader acompanha a área que a
     /// lava ocupa na tela - cobrir muito além da fase é GPU jogada fora.
     /// </summary>
-    public static GameObject EnsureLava(Vector3 center, float width, float depth)
+    /// <param name="surfaceHeight">
+    /// Altura da superfície. As fases correm bem acima dela (ver
+    /// <see cref="kSurfaceHeight"/>); a Terra da Lava Letal pede a lava rente
+    /// às ilhas, como no jogo que a inspira.
+    /// </param>
+    public static GameObject EnsureLava(Vector3 center, float width, float depth,
+                                        float surfaceHeight = kSurfaceHeight)
     {
         var lava = FindExistingLava() ?? CreateLavaSlab();
 
+        // Nunca menor que o mínimo: com o céu vermelho, a borda da laje só
+        // some se cair além do fim da névoa, de qualquer ponto da fase.
+        width = Mathf.Max(width, MinLavaSize);
+        depth = Mathf.Max(depth, MinLavaSize);
+
         // Reaplica tamanho e posição: uma laje criada por uma versão anterior
         // deste script continuaria com as medidas antigas.
-        lava.transform.localPosition = new Vector3(center.x, kSurfaceHeight - kThickness * 0.5f, center.z);
+        lava.transform.localPosition = new Vector3(center.x, surfaceHeight - kThickness * 0.5f, center.z);
         lava.transform.localScale = new Vector3(width, kThickness, depth);
 
         var material = CreateOrLoadMaterial();
@@ -150,14 +141,56 @@ public static class HazardSetup
         if (lava.TryGetComponent<BoxCollider>(out var area)) area.isTrigger = true;
 
         SyncPulseComponent(lava, material);
-        EnsureFallKillZone(lava.transform.parent, center);
+        ApplyFlowingLava(lava, width, depth);
+        EnsureFallKillZone(lava.transform.parent, center, surfaceHeight);
 
         EditorUtility.SetDirty(lava);
         return lava;
     }
 
+    /// <summary>
+    /// Veste a laje com a lava da Terra da Lava Letal: textura de veios em
+    /// baixa resolução, escorrendo, e o pulso só mexendo no brilho.
+    ///
+    /// Nasceu para a fase 3 e passou a ser a lava de todas. Ela resolve o que
+    /// o material chapado não resolvia - laranja uniforme lê como chão pintado
+    /// - sem o custo do shader do pack: é URP Lit comum com uma textura de
+    /// 128 px, e o movimento é só deslocamento de UV.
+    ///
+    /// Se a geração da arte falhar, a laje fica com o material chapado de
+    /// antes. Feia, mas a fase continua montada e letal.
+    /// </summary>
+    static void ApplyFlowingLava(GameObject lava, float width, float depth)
+    {
+        if (LavaLetalArt.Lava == null) LavaLetalArt.Ensure();
+        if (LavaLetalArt.Lava == null) return;
+
+        lava.GetComponent<Renderer>().sharedMaterial = LavaLetalArt.Lava;
+
+        var flow = lava.GetComponent<LavaFlow>();
+        if (flow == null) flow = lava.AddComponent<LavaFlow>();
+
+        // Repetições derivadas do tamanho da laje, para cada uma ocupar sempre
+        // os mesmos metros - numa laje de 70 m e numa de 230 m.
+        var serialized = new SerializedObject(flow);
+        serialized.FindProperty("tiling").vector2Value =
+            new Vector2(width / LavaLetalArt.LavaTile, depth / LavaLetalArt.LavaTile);
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+
+        // O pulso padrão tinge a emissão de laranja chapado; com a textura a
+        // cor vem dela, e o pulso só mexe no brilho.
+        var pulse = lava.GetComponent<LavaSurface>();
+        if (pulse == null) pulse = lava.AddComponent<LavaSurface>();
+
+        var p = new SerializedObject(pulse);
+        p.FindProperty("emissionColor").colorValue = LavaLetalArt.LavaGlow;
+        p.FindProperty("minIntensity").floatValue = 0.8f;
+        p.FindProperty("maxIntensity").floatValue = 1.25f;
+        p.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     /// <summary>Rede de segurança invisível, para quem cair fora da lava visível.</summary>
-    static void EnsureFallKillZone(Transform parent, Vector3 center)
+    static void EnsureFallKillZone(Transform parent, Vector3 center, float surfaceHeight)
     {
         var existing = GameObject.Find(kKillZoneName);
         if (existing == null)
@@ -168,7 +201,7 @@ public static class HazardSetup
 
         // Um pouco abaixo da lava visível: quem cai dentro dela morre lá primeiro,
         // e este volume só pega quem passou por fora.
-        existing.transform.localPosition = new Vector3(center.x, kSurfaceHeight - 6f, center.z);
+        existing.transform.localPosition = new Vector3(center.x, surfaceHeight - 6f, center.z);
 
         var area = existing.GetComponent<BoxCollider>();
         if (area == null) area = existing.AddComponent<BoxCollider>();

@@ -45,7 +45,7 @@ public static class TestLevelBuilder
         LevelKit.Zone(zones, "Bancada", new Vector3(0f, 16f, 50f), new Vector3(50f, 48f, 130f),
                       22f, 22f);
 
-        LevelKit.AssembleSystems(60f, 90f, 150f);
+        LevelKit.AssembleSystems(new[] { 40f, 60f, 90f, 120f, 150f });
 
         HazardSetup.EnsureLava(new Vector3(0f, 0f, 50f), 60f, 150f);
         HazardSetup.EnsureRespawn();

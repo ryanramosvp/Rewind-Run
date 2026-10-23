@@ -32,6 +32,11 @@ public class LavaSurface : MonoBehaviour
 
     void Update()
     {
+        // Recompilar com o jogo rodando apaga o que o Awake montou, e o Awake
+        // não roda de novo: sem isto a lava enchia o console de erros.
+        if (_renderer == null) _renderer = GetComponent<Renderer>();
+        if (_block == null) _block = new MaterialPropertyBlock();
+
         float wave = (Mathf.Sin(Time.time * pulsesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
         float intensity = Mathf.Lerp(minIntensity, maxIntensity, wave);
 

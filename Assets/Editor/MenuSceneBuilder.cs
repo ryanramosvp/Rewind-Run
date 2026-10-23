@@ -337,10 +337,8 @@ public static class MenuSceneBuilder
         light.color = new Color(1f, 0.88f, 0.76f);
         light.shadows = LightShadows.Soft;
 
-        RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.32f, 0.2f, 0.24f);
-        RenderSettings.ambientEquatorColor = new Color(0.46f, 0.24f, 0.18f);
-        RenderSettings.ambientGroundColor = new Color(0.68f, 0.28f, 0.12f);
+        // O mesmo céu das fases: o menu é o mundo do jogo visto de fora.
+        LavaLetalArt.ApplyAtmosphere();
     }
 
     static void Place(Transform parent, string color, string piece, Vector3 position,
@@ -360,7 +358,8 @@ public static class MenuSceneBuilder
         var wanted = new[] { kScenePath,
                             TutorialLevelBuilder.ScenePath,
                             "Assets/Scenes/Level_CorridaDeLava.unity",
-                            "Assets/Scenes/Level_TorreDeBolhas.unity" };
+                            "Assets/Scenes/Level_TorreDeBolhas.unity",
+                            VolcanoLevelBuilder.ScenePath };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
 
         foreach (var path in wanted)

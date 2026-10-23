@@ -23,10 +23,10 @@ public static class BubbleLevelBuilder
 {
     const string kScenePath = "Assets/Scenes/Level_TorreDeBolhas.unity";
 
-    // Estimativas traçadas, não medidas em corrida real.
-    const float kGold = 42f;
-    const float kSilver = 57f;
-    const float kBronze = 89f;
+    // Limites de S, A, B, C e D, em segundos. Acima de D é F.
+    // Mesma regra da Corrida de Lava: o S fica logo acima do melhor tempo
+    // gravado no save (17,28 s) e os degraus abrem na mesma proporção.
+    static readonly float[] kRanks = { 18f, 22f, 27f, 35f, 49f };
 
     [MenuItem("Rewind Run/Criar Fase 2: Torre de Bolhas", priority = 8)]
     public static void Build()
@@ -48,7 +48,7 @@ public static class BubbleLevelBuilder
         var zones = new GameObject("ZonasDeCamera").transform;
         CreateCameraZones(zones);
 
-        LevelKit.AssembleSystems(kGold, kSilver, kBronze);
+        LevelKit.AssembleSystems(kRanks, "Level_LavaLetal");
 
         HazardSetup.EnsureLava(new Vector3(0f, 0f, 65f), 70f, 170f);
         HazardSetup.EnsureRespawn();
@@ -57,7 +57,7 @@ public static class BubbleLevelBuilder
         EditorSceneManager.SaveScene(scene, kScenePath);
         LevelKit.AddSceneToBuildSettings(kScenePath);
 
-        Debug.Log($"Fase 2 criada em {kScenePath}. Ouro {kGold}s, prata {kSilver}s, bronze {kBronze}s.");
+        Debug.Log($"Fase 2 criada em {kScenePath}. Ranks S-D: {string.Join(" / ", kRanks)} s.");
     }
 
     // ------------------------------------------------------------------

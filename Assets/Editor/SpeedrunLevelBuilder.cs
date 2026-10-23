@@ -25,17 +25,19 @@ public static class SpeedrunLevelBuilder
 {
     const string kScenePath = "Assets/Scenes/Level_CorridaDeLava.unity";
 
-    // Alturas das medalhas. São estimativas de traçado, não medições - ajustar
-    // depois de correr a fase algumas vezes é esperado.
     // Altura do piso da pista e de onde as prensas largam.
     const float kRunwayTop = 9f;
     const float kCrusherTop = 17f;
 
-    // Estimativas tracadas, nao medidas. A abertura ganhou dois trechos de
-    // espera forcada, entao os tempos antigos (35/50/80) ficariam impossiveis.
-    const float kGold = 46f;
-    const float kSilver = 63f;
-    const float kBronze = 97f;
+    // Limites de S, A, B, C e D, em segundos. Acima de D é F.
+    //
+    // Ancorados numa corrida real, não no traçado. As medalhas antigas eram
+    // estimativas (ouro 46 s) e o melhor tempo gravado no save chegou a
+    // 20,26 s - o ouro dava para pegar andando a menos da metade do ritmo.
+    // O S fica logo acima desse recorde: é o tempo de quem domina a fase. Os
+    // degraus abrem em proporção (cerca de +20%, +50%, +95% e +170% sobre o
+    // S), então cada rank pede uma melhora do mesmo tamanho relativo.
+    static readonly float[] kRanks = { 21f, 25f, 31f, 41f, 57f };
 
     [MenuItem("Rewind Run/Criar Fase: Corrida de Lava", priority = 7)]
     public static void Build()
@@ -57,7 +59,7 @@ public static class SpeedrunLevelBuilder
         var zones = new GameObject("ZonasDeCamera").transform;
         CreateCameraZones(zones);
 
-        LevelKit.AssembleSystems(kGold, kSilver, kBronze, "Level_TorreDeBolhas");
+        LevelKit.AssembleSystems(kRanks, "Level_TorreDeBolhas");
 
         HazardSetup.EnsureLava(new Vector3(0f, 0f, 75f), 90f, 190f);
         HazardSetup.EnsureRespawn();
@@ -66,7 +68,7 @@ public static class SpeedrunLevelBuilder
         EditorSceneManager.SaveScene(scene, kScenePath);
         LevelKit.AddSceneToBuildSettings(kScenePath);
 
-        Debug.Log($"Fase criada em {kScenePath}. Ouro {kGold}s, prata {kSilver}s, bronze {kBronze}s.");
+        Debug.Log($"Fase criada em {kScenePath}. Ranks S-D: {string.Join(" / ", kRanks)} s.");
     }
 
     // ------------------------------------------------------------------

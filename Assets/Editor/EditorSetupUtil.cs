@@ -42,6 +42,48 @@ public static class EditorSetupUtil
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
+    /// <summary>Mesma ideia da <see cref="SetReference"/>, para listas de referências.</summary>
+    public static void SetReferences(Object target, string fieldName, Object[] values)
+    {
+        var property = FindArray(target, fieldName, values.Length, out var serialized);
+        if (property == null) return;
+
+        for (int i = 0; i < values.Length; i++)
+            property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>Mesma ideia da <see cref="SetReference"/>, para listas de números.</summary>
+    public static void SetFloats(Object target, string fieldName, float[] values)
+    {
+        var property = FindArray(target, fieldName, values.Length, out var serialized);
+        if (property == null) return;
+
+        for (int i = 0; i < values.Length; i++)
+            property.GetArrayElementAtIndex(i).floatValue = values[i];
+
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    static SerializedProperty FindArray(Object target, string fieldName, int size,
+                                        out SerializedObject serialized)
+    {
+        serialized = null;
+        if (target == null) return null;
+
+        serialized = new SerializedObject(target);
+        var property = serialized.FindProperty(fieldName);
+        if (property == null || !property.isArray)
+        {
+            Debug.LogWarning($"Lista '{fieldName}' não existe em {target.GetType().Name}.");
+            return null;
+        }
+
+        property.arraySize = size;
+        return property;
+    }
+
     /// <summary>Cria a pasta do asset se ela ainda não existir.</summary>
     public static void EnsureFolder(string assetPath)
     {

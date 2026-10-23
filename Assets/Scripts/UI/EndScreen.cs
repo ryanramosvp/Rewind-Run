@@ -17,10 +17,19 @@ public class EndScreen : MonoBehaviour
     [SerializeField] GameObject victoryPanel;
     [SerializeField] Text deathSummary;
     [SerializeField] Text victorySummary;
-    [SerializeField] Text medalLabel;
+    [SerializeField] Text rankLabel;
     [SerializeField] Text timeValue;
     [SerializeField] Text fallsValue;
     [SerializeField] Text bestValue;
+
+    [Header("Escada de ranks, de S a F")]
+    [SerializeField] Image[] ladderPanels;
+    [SerializeField] Text[] ladderLetters;
+    [SerializeField] Text[] ladderLimits;
+    [SerializeField] Text[] ladderDeltas;
+
+    [SerializeField] Text nextRankLabel;
+    [SerializeField] Text recordLabel;
 
     [Tooltip("Cena do menu inicial, carregada com Esc.")]
     [SerializeField] string menuScene = "Menu";
@@ -125,30 +134,32 @@ public class EndScreen : MonoBehaviour
     /// <summary>
     /// Monta o resumo da corrida.
     ///
-    /// A medalha vem primeiro e grande porque e o veredito; tempo e recorde sao
-    /// a justificativa. Quando o recorde cai, ele e dito explicitamente - um
-    /// numero menor que o anterior passa despercebido se ninguem apontar.
+    /// O rank vem primeiro e grande porque é o veredito; tempo e recorde são a
+    /// justificativa. Quando o recorde cai, ele é dito explicitamente - um
+    /// número menor que o anterior passa despercebido se ninguém apontar.
     /// </summary>
     void WriteVictorySummary(GameSession session)
     {
-        var medal = session.EarnedMedal;
+        var rank = session.EarnedRank;
 
-        if (medalLabel != null)
+        if (rankLabel != null)
         {
-            medalLabel.text = medal == Medal.Nenhuma ? "SEM MEDALHA" : medal.ToString().ToUpperInvariant();
-            medalLabel.color = GameSession.ColorOf(medal);
+            rankLabel.text = rank.ToString();
+            rankLabel.color = Ranks.ColorOf(rank);
         }
+
+        WriteLadder(session, rank);
+        WriteNextRank(session, rank);
+        WriteRecord(session);
 
         if (timeValue != null) timeValue.text = GameSession.FormatTime(session.Elapsed);
         if (fallsValue != null) fallsValue.text = session.Deaths.ToString();
 
         if (bestValue != null)
         {
-            // Recorde novo e dito em palavra, nao so em numero menor: um numero
-            // que caiu passa despercebido se ninguem apontar.
-            bestValue.text = session.IsNewRecord
-                ? "NOVO"
-                : session.PreviousBest > 0f ? GameSession.FormatTime(session.PreviousBest) : "--";
+            // Sempre o tempo anterior, que é o que o rótulo promete. O recorde
+            // novo é anunciado na linha de baixo, com a diferença.
+            bestValue.text = session.PreviousBest > 0f ? GameSession.FormatTime(session.PreviousBest) : "--";
         }
 
         if (victorySummary != null)
@@ -158,6 +169,132 @@ public class EndScreen : MonoBehaviour
             victorySummary.text = string.IsNullOrEmpty(nextLevelScene)
                 ? "Espaço ou R para correr de novo   |   Esc para o menu"
                 : "Espaço: próxima fase   |   R: correr de novo   |   Esc: menu";
+    }
+
+    /// <summary>
+    /// A escada inteira, e não só o rank alcançado.
+    ///
+    /// Cada degrau mostra o limite e a distância do tempo feito até ele. Com a
+    /// escada toda à vista, quem tirou B vê no mesmo relance que o A estava a
+    /// 1,8 s e o S a 6 s - e é isso que faz correr de novo, não a letra.
+    /// </summary>
+    void WriteLadder(GameSession session, Rank earned)
+    {
+        float time = session.Elapsed;
+        var dim = new Color(0.16f, 0.18f, 0.19f, 0.95f);
+        var ink = new Color(0.075f, 0.098f, 0.106f);
+        var ash = new Color(0.831f, 0.859f, 0.871f);
+
+        for (int i = 0; i <= (int)Rank.F; i++)
+        {
+            var rank = (Rank)i;
+            bool isTimed = i < Ranks.Timed;
+            float limit = session.LimitOf(rank);
+
+            // O degrau alcançado fica com a cor cheia do rank e texto escuro,
+            // como um botão selecionado; os outros ficam apagados. Com a cor
+            // só translúcida, a letra B azul sumia sobre o próprio fundo azul.
+            bool lit = rank == earned;
+
+            if (TryGet(ladderPanels, i, out var panel))
+                panel.color = lit ? Ranks.ColorOf(rank) : dim;
+
+            if (TryGet(ladderLetters, i, out var letter))
+                letter.color = lit ? ink : Ranks.ColorOf(rank);
+
+            if (TryGet(ladderLimits, i, out var limitLabel))
+            {
+                limitLabel.text = isTimed
+                    ? "até " + GameSession.FormatTime(limit)
+                    : "acima de " + GameSession.FormatTime(limit);
+                limitLabel.color = lit ? ink : ash;
+            }
+
+            if (!TryGet(ladderDeltas, i, out var deltaLabel)) continue;
+
+            if (!isTimed)
+            {
+                deltaLabel.text = lit ? "aqui" : "--";
+                deltaLabel.color = lit ? ink : new Color(0.6f, 0.62f, 0.64f);
+                continue;
+            }
+
+            float delta = time - limit;
+            deltaLabel.text = GameSession.FormatDelta(delta);
+            deltaLabel.color = lit ? ink
+                             : delta <= 0f ? new Color(0.45f, 0.88f, 0.55f)
+                             : new Color(1f, 0.45f, 0.4f);
+        }
+    }
+
+    static bool TryGet<T>(T[] items, int index, out T item) where T : Object
+    {
+        item = items != null && index < items.Length ? items[index] : null;
+        return item != null;
+    }
+
+    /// <summary>
+    /// Quanto faltou para o rank de cima, em palavras - e, quando o recorde
+    /// cai, por quanto. Recorde novo é dito em palavra, não só em número
+    /// menor: um número que caiu passa despercebido se ninguém apontar.
+    /// </summary>
+    void WriteNextRank(GameSession session, Rank earned)
+    {
+        if (nextRankLabel == null) return;
+
+        string goal;
+        if (earned == Rank.S)
+        {
+            goal = "Rank máximo. Agora é contra o próprio recorde.";
+        }
+        else
+        {
+            var next = (Rank)((int)earned - 1);
+            float missing = session.Elapsed - session.LimitOf(next);
+
+            goal = $"Próximo rank: {next} em {GameSession.FormatTime(session.LimitOf(next))}" +
+                   $"  ·  faltaram {Seconds(missing)} s";
+        }
+
+        if (session.IsNewRecord)
+        {
+            string headline = session.PreviousBest > 0f
+                ? $"NOVO RECORDE: {Seconds(session.PreviousBest - session.Elapsed)} s mais rápido"
+                : "PRIMEIRO RECORDE NESTA FASE";
+            goal = headline + "\n" + goal;
+        }
+
+        nextRankLabel.text = goal;
+    }
+
+    static string Seconds(float value) => value.ToString("0.00").Replace('.', ',');
+
+    /// <summary>
+    /// O que o save guarda desta fase: melhor tempo, quantas vezes foi
+    /// concluída e as últimas corridas, para ver a evolução de uma vez.
+    /// </summary>
+    void WriteRecord(GameSession session)
+    {
+        if (recordLabel == null) return;
+
+        var record = session.Record;
+        var line = new System.Text.StringBuilder();
+
+        line.Append($"Melhor: {GameSession.FormatTime(record.bestTime)} (rank {session.RankFor(record.bestTime)})");
+        line.Append($"   ·   {record.completions} {(record.completions == 1 ? "corrida concluída" : "corridas concluídas")}");
+        line.Append($"   ·   {record.totalDeaths} mortes no total");
+
+        if (record.recentRuns.Count > 1)
+        {
+            line.Append("\nÚltimas: ");
+            for (int i = 0; i < record.recentRuns.Count; i++)
+            {
+                if (i > 0) line.Append("   ");
+                line.Append(GameSession.FormatTime(record.recentRuns[i].time));
+            }
+        }
+
+        recordLabel.text = line.ToString();
     }
 
     void Show(GameObject panel, bool victory)
