@@ -31,10 +31,11 @@ public static class VolcanoLevelBuilder
     public const string ScenePath = "Assets/Scenes/Level_LavaLetal.unity";
 
     // Limites de S, A, B, C e D, em segundos. Estimativa, não medição: a rota
-    // tem uns 200 m entre centros de plataforma, o que dá ~18 s correndo sem
-    // erro a 11 m/s; o S fica um pouco acima disso. O save agora registra as
-    // corridas, então recalibrar depois de jogar é ler o melhor tempo dele.
-    static readonly float[] kRanks = { 21f, 26f, 33f, 43f, 60f };
+    // tem uns 250 m entre centros de plataforma, parte deles a 15 m/s nas
+    // rampas, o que dá ~21 s sem erro; o S fica um pouco acima disso. O save
+    // registra as corridas, então recalibrar depois de jogar é ler o melhor
+    // tempo dele.
+    static readonly float[] kRanks = { 24f, 29f, 37f, 48f, 66f };
 
     /// <summary>Onde as ilhas começam, abaixo da lava: a base nunca aparece.</summary>
     const float kBedrock = -1.5f;
@@ -48,11 +49,20 @@ public static class VolcanoLevelBuilder
     static readonly Dictionary<string, (float top, Vector2[] poly)> s_Footprints =
         new Dictionary<string, (float, Vector2[])>();
 
-    static readonly string[] kMainRoute =
+    /// <summary>Centro de cada bolha, para a validação dos combos.</summary>
+    static readonly Dictionary<string, Vector3> s_Bubbles = new Dictionary<string, Vector3>();
+
+    /// <summary>Ponta de baixo de cada rampa: posição, altura e direção da descida.</summary>
+    static readonly Dictionary<string, (Vector2 xz, float y, Vector2 forward)> s_RampLips =
+        new Dictionary<string, (Vector2, float, Vector2)>();
+
+    // A rota principal em trechos de saltos simples. Os combos de bolha e
+    // rampa entre eles são validados à parte, em ValidateCombos.
+    static readonly string[][] kMainRoute =
     {
-        "Largada", "Placa1", "Ilhota1", "Passarela1", "Descanso1", "BlocoAzul",
-        "Central", "Patio", "Segura1", "Segura2", "Segura3", "Juncao",
-        "Passarela3", "Pedra1", "Pedra2", "Pedra3", "Torre", "Degrau", "Chegada",
+        new[] { "Largada", "Placa1", "Ilhota1" },
+        new[] { "Pista", "Central", "Patio", "Segura1", "Segura2", "Segura3", "Juncao",
+                "Passarela3", "Pedra1", "Pedra2", "Pedra3", "Torre" },
     };
 
     static readonly string[] kShortcut = { "Patio", "Atalho1", "Juncao" };
@@ -66,6 +76,8 @@ public static class VolcanoLevelBuilder
         KayKitMaterialSetup.Apply();
         LavaLetalArt.Ensure();
         s_Footprints.Clear();
+        s_Bubbles.Clear();
+        s_RampLips.Clear();
 
         CreateAtmosphere();
 
@@ -121,26 +133,29 @@ public static class VolcanoLevelBuilder
     }
 
     /// <summary>
-    /// Primeira sequência: cinco plataformas de formas diferentes, vãos de 3,5
-    /// a 6,7 m e no máximo 1 m de desnível. O pulo simples correndo alcança
-    /// 11 m, então nada aqui passa de 60% dele.
+    /// Primeira sequência, e a primeira bolha com rampa.
     ///
-    /// A passarela fica na diagonal (-35 graus) para o caminho já começar a
-    /// sair da linha reta: a câmera olha para +Z, e a primeira curva para a
-    /// esquerda acontece aqui.
+    /// Duas plataformas fáceis, e da ilhota uma bolha leva ao rochedo alto
+    /// (10 m). Dele, uma rampa de 34 graus desce 4 m até a pista metálica. É
+    /// o combo da fase apresentado num lugar sem risco: a bolha está logo
+    /// acima do pulo normal, e a pista é longa o bastante para receber tanto
+    /// quem só desliza para fora da rampa (pousa a 3,7 m) quanto quem pula na
+    /// beira a 15 m/s (pousa a 15,2 m). Ver <see cref="ValidateJumps"/>.
     /// </summary>
     static void CreateFirstIslands(Transform root)
     {
-        Plate(root, "Placa1", 6f, 21f, 4.6f, 5f, 5f, 15f, LavaLetalArt.Metal, trim: true, supports: true);
-        Rock(root, "Ilhota1", -1f, 31f, 5.2f, 3.4f, 6, 102, LavaLetalArt.RockBurnt);
-        Plate(root, "Passarela1", -7.5f, 40.5f, 5.6f, 2f, 10f, -35f, LavaLetalArt.MetalBlue, trim: true, supports: true);
-        Rock(root, "Descanso1", -5f, 53f, 4.6f, 5f, 8, 103, LavaLetalArt.RockBrown);
+        Plate(root, "Placa1", 2f, 21f, 4.6f, 5f, 5f, 15f, LavaLetalArt.Metal, trim: true, supports: true);
+        Rock(root, "Ilhota1", -5f, 31f, 5.2f, 3.4f, 6, 102, LavaLetalArt.RockBurnt);
 
-        // Bloco do pack sobre uma coluna: a única peça do KayKit no percurso,
-        // e de propósito azul - o contraste mais forte possível com a lava.
-        LevelKit.Place(root, "blue", "platform_4x4x2", new Vector3(3f, 3f, 61f));
-        LevelKit.Place(root, "neutral", "pillar_2x2x4", new Vector3(3f, -1f, 61f));
-        Register("BlocoAzul", 5f, Square(3f, 61f, 4f));
+        Bubble(root, "Bolha_A", new Vector3(-5f, 8.2f, 38.5f), 0f);
+        Rock(root, "Alto_A", -5f, 48.5f, 10f, 3.5f, 7, 103, LavaLetalArt.RockGray);
+        // A rampa termina em Z = 51 + RampLength(4) = 58,6, e a pista começa
+        // 2,5 m depois.
+        Ramp(root, "Rampa_A", new Vector3(-5f, 10f, 51f), 6f, 4f, 0f);
+
+        // Azul, como o bloco do pack que ficava aqui: o contraste mais forte
+        // possível com a lava, logo na primeira descida.
+        Plate(root, "Pista", -5f, 69.25f, 5f, 8f, 16.5f, 0f, LavaLetalArt.MetalBlue, trim: true, supports: true);
     }
 
     /// <summary>
@@ -224,7 +239,18 @@ public static class VolcanoLevelBuilder
     }
 
     /// <summary>
-    /// Chegada: um degrau e a ilha final, com a bandeira num farol de 16 m.
+    /// Final: subida de bolhas, a grande rampa e o salto até a chegada.
+    ///
+    /// Da torre, duas bolhas sobem até o mirante, a 15 m. Dele, uma rampa de
+    /// 13,5 m desce 8 m e termina sobre a lava. A bruxa sai dela a 15 m/s, e no
+    /// meio do vão há uma terceira bolha: tocá-la renova a subida e o pulo
+    /// duplo, e é o que leva até a ilha da chegada.
+    ///
+    /// O vão foi medido para pedir o combo. Só o deslize, sem bolha nem pulo
+    /// duplo, pousa a 15,9 m e a ilha começa a 16,5 m. Com a bolha, a bruxa
+    /// pousa entre 22 e 28 m, conforme a velocidade e onde pulou. Quem perde a
+    /// bolha ainda tem o pulo duplo (pousa a 25 m) - errar o combo custa
+    /// precisão, não a corrida inteira.
     ///
     /// O farol é o que faz a chegada ser vista de longe. A bandeira do pack
     /// tem 1,5 m e some na névoa a 60 m; no alto de duas colunas e com uma luz
@@ -232,24 +258,40 @@ public static class VolcanoLevelBuilder
     /// </summary>
     static void CreateFinish(Transform root)
     {
-        Plate(root, "Degrau", -26f, 119f, 7.5f, 4f, 4f, 20f, LavaLetalArt.MetalBlue, trim: true, supports: true);
-        Rock(root, "Chegada", -22f, 131f, 7f, 8f, 8, 111, LavaLetalArt.RockGray);
+        Bubble(root, "Bolha_B1", new Vector3(-24f, 11.3f, 114.7f), 0f);
+        Bubble(root, "Bolha_B2", new Vector3(-24f, 15.3f, 121.2f), 0.5f);
+        Rock(root, "Mirante", -24f, 132.5f, 15f, 5f, 8, 111, LavaLetalArt.RockGray);
 
-        LevelKit.Place(root, "green", "flag_A", new Vector3(-22f, 7f, 133f));
-        LevelKit.Place(root, "neutral", "signage_finish", new Vector3(-22f, 7f, 128.5f));
+        // A rampa termina em Z = 135,5 + RampLength(8) = 149; a bolha fica
+        // 7,5 m depois e a ilha da chegada começa 16,5 m depois.
+        //
+        // A bolha está na altura do topo do pulo, e não no meio do caminho.
+        // Ninguém pula exatamente na beira: num teste com entrada simulada a
+        // bruxa saltou 0,7 m antes, mais alto, e passou por cima da bolha que
+        // ficava 1,75 m abaixo desta. Aqui ela pega qualquer pulo dos últimos
+        // 3 m da rampa, de 12 a 15 m/s.
+        Ramp(root, "Rampa_B", new Vector3(-24f, 15f, 135.5f), 6f, 8f, 0f);
+        Bubble(root, "Bolha_B3", new Vector3(-24f, 11.25f, 156.5f), 0.25f);
 
-        LevelKit.Place(root, "neutral", "pillar_2x2x8", new Vector3(-27f, 7f, 135f));
-        LevelKit.Place(root, "neutral", "pillar_2x2x8", new Vector3(-27f, 15f, 135f));
-        LevelKit.Place(root, "green", "flag_A", new Vector3(-27f, 23f, 135f));
+        Rock(root, "Chegada", -24f, 172.5f, 7f, 8f, 8, 112, LavaLetalArt.RockGray);
+
+        LevelKit.Place(root, "green", "flag_A", new Vector3(-24f, 7f, 175.5f));
+        LevelKit.Place(root, "neutral", "signage_finish", new Vector3(-24f, 7f, 168f));
+
+        LevelKit.Place(root, "neutral", "pillar_2x2x8", new Vector3(-29f, 7f, 176.5f));
+        LevelKit.Place(root, "neutral", "pillar_2x2x8", new Vector3(-29f, 15f, 176.5f));
+        LevelKit.Place(root, "green", "flag_A", new Vector3(-29f, 23f, 176.5f));
         Decor(root, "Farol", LowPolyMesh.Prism(LowPolyMesh.Regular(4, 0.9f, 45f), 23f, 24.4f, 1f),
-              LavaLetalArt.GlowYellow, new Vector3(-27f, 0f, 135f));
+              LavaLetalArt.GlowYellow, new Vector3(-29f, 0f, 176.5f));
 
+        // Cobre de 167 a 178 m: o pouso depois da última bolha cai entre 171 e
+        // 177, conforme a velocidade, então a chegada já conta no pouso.
         var go = new GameObject("FimDaFase");
         go.transform.SetParent(root, false);
-        go.transform.localPosition = new Vector3(-22f, 8.5f, 131f);
+        go.transform.localPosition = new Vector3(-24f, 8.5f, 172.5f);
 
         var area = go.AddComponent<BoxCollider>();
-        area.size = new Vector3(6f, 3f, 6f);
+        area.size = new Vector3(8f, 3f, 11f);
         area.isTrigger = true;
 
         go.AddComponent<LevelFinish>();
@@ -286,7 +328,8 @@ public static class VolcanoLevelBuilder
 
         FloatingBlock(root, "Suspenso_A", new Vector3(-34f, 13f, 46f), new Vector3(5f, 5f, 5f), 20f);
         FloatingBlock(root, "Suspenso_B", new Vector3(48f, 15f, 84f), new Vector3(6f, 4f, 6f), -15f);
-        FloatingBlock(root, "Suspenso_C", new Vector3(-44f, 14f, 120f), new Vector3(4f, 6f, 4f), 35f);
+        // Longe da subida de bolhas, que passa na mesma altura em X = -24.
+        FloatingBlock(root, "Suspenso_C", new Vector3(-52f, 16f, 112f), new Vector3(4f, 6f, 4f), 35f);
 
         DarkTower(root, "Torre_Escura_A", new Vector3(-58f, 0f, 145f), new Vector3(12f, 28f, 10f), 15f, 221);
         DarkTower(root, "Torre_Escura_B", new Vector3(88f, 0f, 64f), new Vector3(10f, 18f, 16f), -10f, 222);
@@ -306,15 +349,30 @@ public static class VolcanoLevelBuilder
     /// A travessia vira a câmera para -60 graus. Ali o caminho corre para
     /// oeste; com a câmera para +Z ele passaria de lado na tela, e o próximo
     /// salto ficaria na borda do quadro.
+    ///
+    /// Na torre ela volta para o norte, mais baixa (30 graus) e mais longe:
+    /// a subida de bolhas é vertical, e de cima a altura achata.
+    /// A zona começa em X = -20,5, depois da última coluna, para a virada
+    /// acontecer no pouso da torre e não no meio do pulo duplo até ela.
     /// </summary>
     static void CreateCameraZones(Transform root)
     {
-        KayKitPlacer.CreateCameraZone(root, "Zona_Largada", new Bounds(new Vector3(0f, 6f, 30f), new Vector3(60f, 30f, 70f)),
+        KayKitPlacer.CreateCameraZone(root, "Zona_Largada", new Bounds(new Vector3(0f, 8f, 37f), new Vector3(60f, 34f, 84f)),
                                       0f, 34f, 22f);
-        KayKitPlacer.CreateCameraZone(root, "Zona_Centro", new Bounds(new Vector3(24f, 6f, 86f), new Vector3(44f, 30f, 52f)),
+        KayKitPlacer.CreateCameraZone(root, "Zona_Centro", new Bounds(new Vector3(24f, 6f, 87f), new Vector3(44f, 30f, 50f)),
                                       0f, 36f, 24f);
-        KayKitPlacer.CreateCameraZone(root, "Zona_Travessia", new Bounds(new Vector3(-9f, 8f, 122f), new Vector3(50f, 30f, 36f)),
+        KayKitPlacer.CreateCameraZone(root, "Zona_Travessia", new Bounds(new Vector3(-2f, 8f, 116f), new Vector3(37f, 30f, 24f)),
                                       -60f, 38f, 23f);
+        KayKitPlacer.CreateCameraZone(root, "Zona_Subida", new Bounds(new Vector3(-33f, 14f, 115f), new Vector3(25f, 44f, 32f)),
+                                      0f, 30f, 25f);
+
+        // Do mirante em diante a câmera sobe para 45 graus. A 30, a rampa
+        // descia logo depois da beira e ficava escondida atrás do próprio
+        // mirante: quem chegava lá em cima via a bolha e a chegada, mas não o
+        // caminho até elas. A zona começa no meio do mirante, então a virada
+        // acontece já com os pés no chão.
+        KayKitPlacer.CreateCameraZone(root, "Zona_Rampa", new Bounds(new Vector3(-33f, 14f, 158f), new Vector3(25f, 44f, 54f)),
+                                      0f, 45f, 22f);
     }
 
     // ------------------------------------------------------------------
@@ -429,6 +487,73 @@ public static class VolcanoLevelBuilder
         }
 
         Register(name, top, World(go.transform, rectangle));
+    }
+
+    /// <summary>A bolha da Torre de Bolhas, igual: mesmo prefab, mesmo quique, mesmo rewind.</summary>
+    static void Bubble(Transform root, string name, Vector3 center, float bobPhase)
+    {
+        LevelKit.Bubble(root, center, bobPhase).name = name;
+        s_Bubbles[name] = center;
+    }
+
+    // Perfil das rampas: 3 m de entrada a 17 graus, e o resto a 34. A entrada
+    // fica abaixo dos 25 graus do deslize - ali a bruxa ainda corre - e é o
+    // que impede quem chega a 11 m/s de voar por cima da rampa (ver
+    // LowPolyMesh.Ramp). O trecho de 34 é o que dispara o deslize.
+    const float kRampEntry = 3f;
+    const float kRampEntryAngle = 17f;
+    const float kRampAngle = 34f;
+
+    /// <summary>Comprimento total de uma rampa com essa queda, entrada inclusa.</summary>
+    static float RampLength(float drop)
+    {
+        float entryDrop = kRampEntry * Mathf.Tan(kRampEntryAngle * Mathf.Deg2Rad);
+        return kRampEntry + (drop - entryDrop) / Mathf.Tan(kRampAngle * Mathf.Deg2Rad);
+    }
+
+    /// <summary>
+    /// Rampa de chapa sobre bloco de pedra, descendo para +Z (girada por
+    /// <paramref name="yaw"/>). <paramref name="topEdge"/> é o meio da aresta de
+    /// cima; a de baixo termina num degrau sobre a lava.
+    ///
+    /// Entrando a 11 m/s, a bruxa ganha o impulso de 3 ao começar a deslizar e
+    /// chega ao teto de 15 m/s antes do fim do trecho íngreme.
+    /// </summary>
+    static void Ramp(Transform root, string name, Vector3 topEdge, float width, float drop, float yaw)
+    {
+        float length = RampLength(drop);
+        float entryDrop = kRampEntry * Mathf.Tan(kRampEntryAngle * Mathf.Deg2Rad);
+
+        var mesh = LowPolyMesh.Ramp(width, length, drop, kBedrock - topEdge.y, LavaLetalArt.MetalTile,
+                                    kRampEntry, entryDrop, name);
+        var go = Solid(root, name, mesh, LavaLetalArt.Metal, LavaLetalArt.RockSide, topEdge, yaw);
+        AddMeshCollider(go);
+
+        // Faixas de perigo nas duas bordas laterais, uma por trecho da descida.
+        var corners = new[] { Vector2.zero, new Vector2(kRampEntry, -entryDrop), new Vector2(length, -drop) };
+        for (int i = 0; i + 1 < corners.Length; i++)
+        {
+            var a = corners[i];
+            var b = corners[i + 1];
+            float angle = Mathf.Atan2(a.y - b.y, b.x - a.x) * Mathf.Rad2Deg;
+            float span = Vector2.Distance(a, b);
+            var mid = (a + b) * 0.5f;
+
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var strip = new GameObject("Faixa");
+                strip.transform.SetParent(go.transform, false);
+                strip.transform.SetLocalPositionAndRotation(
+                    new Vector3(side * (width * 0.5f - 0.14f), mid.y, mid.x), Quaternion.Euler(angle, 0f, 0f));
+                Solid(strip.transform, "Faixa",
+                      LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.28f, span), -0.24f, 0.015f, 1f, 1f, "Faixa"),
+                      LavaLetalArt.Hazard, LavaLetalArt.Hazard, Vector3.zero, 0f);
+            }
+        }
+
+        var lip = go.transform.TransformPoint(new Vector3(0f, -drop, length));
+        var forward = go.transform.forward;
+        s_RampLips[name] = (new Vector2(lip.x, lip.z), lip.y, new Vector2(forward.x, forward.z).normalized);
     }
 
     static void Trim(Transform plate, Vector3 center, Vector2 size)
@@ -611,13 +736,198 @@ public static class VolcanoLevelBuilder
             }
         }
 
-        Check("Rota principal (segura)", kMainRoute);
+        for (int i = 0; i < kMainRoute.Length; i++)
+            Check($"Rota principal, trecho {i + 1}", kMainRoute[i]);
         Check("Atalho", kShortcut);
+
+        impossible += ValidateCombos(jump, report);
 
         if (impossible > 0)
             Debug.LogWarning(report.Append($"\n{impossible} salto(s) impossível(is).").ToString());
         else
             Debug.Log(report.ToString());
+    }
+
+    /// <summary>
+    /// Os combos de bolha e rampa, simulados quadro a quadro.
+    ///
+    /// Cada um é testado com as bolhas nos dois extremos do balanço (±0,3 m),
+    /// porque o jogador chega nelas em qualquer fase dele. E os que dependem
+    /// de velocidade são testados nas duas pontas: 11 m/s (correndo) e 15
+    /// (saindo da rampa), além de deslizar para fora sem pular.
+    /// </summary>
+    static int ValidateCombos(JumpModel jump, StringBuilder report)
+    {
+        int failures = 0;
+        report.Append("\nCombos de bolha e rampa\n");
+
+        void Expect(string title, bool shouldLand, (bool landed, float d) result)
+        {
+            bool ok = result.landed == shouldLand;
+            if (!ok) failures++;
+
+            string what = result.landed ? $"pousa a {result.d:0.0} m" : "não alcança";
+            string verdict = ok ? (shouldLand ? "ok" : "ok, como pedido") : (shouldLand ? "FALHA" : "PASSA SEM O COMBO");
+            report.Append($"  {title}: {what} - {verdict}\n");
+        }
+
+        // Combo A: ilhota -> bolha -> alto.
+        foreach (float bob in new[] { -0.3f, 0.3f })
+            Expect($"Ilhota1 -> Bolha_A -> Alto_A (balanço {bob:+0.0;-0.0})", true,
+                   FromIsland(jump, "Ilhota1", "Alto_A", jump.Speed, new[] { "Bolha_A" }, bob));
+        Expect("Ilhota1 -> Alto_A sem a bolha", false,
+               FromIsland(jump, "Ilhota1", "Alto_A", jump.Speed, new string[0], 0f));
+
+        // Rampa A -> pista: os dois jeitos de sair precisam pousar.
+        Expect("Rampa_A -> Pista deslizando para fora", true,
+               FromRamp(jump, "Rampa_A", "Pista", 14f, new string[0], 0f, jumps: false));
+        Expect("Rampa_A -> Pista pulando na beira a 15 m/s", true,
+               FromRamp(jump, "Rampa_A", "Pista", 15f, new string[0], 0f, jumps: true));
+        Expect("Rampa_A -> Pista pulando 3 m antes da beira a 15 m/s", true,
+               FromRamp(jump, "Rampa_A", "Pista", 15f, new string[0], 0f, jumps: true, early: 3f));
+
+        // Combo B: torre -> duas bolhas -> mirante.
+        foreach (float bob in new[] { -0.3f, 0.3f })
+            Expect($"Torre -> Bolha_B1 -> Bolha_B2 -> Mirante (balanço {bob:+0.0;-0.0})", true,
+                   FromIsland(jump, "Torre", "Mirante", jump.Speed, new[] { "Bolha_B1", "Bolha_B2" }, bob));
+
+        // Combo C: rampa B -> bolha no vão -> chegada, pulando da beira ou até
+        // 3 m antes dela - ninguém pula exatamente na beira.
+        foreach (float speed in new[] { 12f, 15f })
+        foreach (float early in new[] { 0f, 1.5f, 3f })
+        foreach (float bob in new[] { -0.3f, 0.3f })
+            Expect($"Rampa_B -> Bolha_B3 -> Chegada a {speed:0} m/s, {early:0.0} m antes da beira " +
+                   $"(balanço {bob:+0.0;-0.0})", true,
+                   FromRamp(jump, "Rampa_B", "Chegada", speed, new[] { "Bolha_B3" }, bob, jumps: true, early: early));
+        Expect("Rampa_B -> Chegada a 15 m/s sem bolha nem duplo", false,
+               FromRamp(jump, "Rampa_B", "Chegada", 15f, new string[0], 0f, jumps: true));
+        Expect("Rampa_B -> Chegada a 15 m/s sem bolha, com duplo", true,
+               FromRamp(jump, "Rampa_B", "Chegada", 15f, new string[0], 0f, jumps: true, doubleAt: 0.5f));
+
+        return failures;
+    }
+
+    /// <summary>Salto que sai da beira de uma ilha, na direção de outra.</summary>
+    static (bool, float) FromIsland(JumpModel jump, string from, string to, float speed,
+                                    string[] bubbles, float bob, float? doubleAt = null)
+    {
+        if (!s_Footprints.TryGetValue(from, out var a) || !s_Footprints.TryGetValue(to, out var b))
+            return (false, 0f);
+
+        var origin = Centroid(a.poly);
+        var direction = (Centroid(b.poly) - origin).normalized;
+        var start = origin + direction * RayHits(a.poly, origin, direction).max;
+
+        return Fly(jump, start, a.top, direction, speed, b, bubbles, bob, true, doubleAt);
+    }
+
+    /// <summary>
+    /// Salto que sai de uma rampa a uma velocidade de deslize, da ponta de
+    /// baixo ou <paramref name="early"/> metros antes dela (mais alto, no
+    /// trecho de 34 graus).
+    /// </summary>
+    static (bool, float) FromRamp(JumpModel jump, string ramp, string to, float speed,
+                                  string[] bubbles, float bob, bool jumps, float? doubleAt = null,
+                                  float early = 0f)
+    {
+        if (!s_RampLips.TryGetValue(ramp, out var lip) || !s_Footprints.TryGetValue(to, out var b))
+            return (false, 0f);
+
+        var start = lip.xz - lip.forward * early;
+        float height = lip.y + early * Mathf.Tan(kRampAngle * Mathf.Deg2Rad);
+        return Fly(jump, start, height, lip.forward, speed, b, bubbles, bob, jumps, doubleAt);
+    }
+
+    /// <summary>
+    /// Voa em linha reta a partir de <paramref name="start"/> e diz se pousa
+    /// no topo de <paramref name="target"/>. As bolhas valem quando a bruxa
+    /// passa a menos do raio do gatilho do centro delas, como no AirBubble.
+    /// </summary>
+    static (bool landed, float d) Fly(JumpModel jump, Vector2 start, float y0, Vector2 direction, float speed,
+                                      (float top, Vector2[] poly) target, string[] bubbles, float bob,
+                                      bool jumps, float? doubleAt)
+    {
+        const float dt = 1f / 240f;
+        const float trigger = LevelKit.BubbleRadius + 0.2f;
+
+        var hits = RayHits(target.poly, start, direction);
+        float landFrom = hits.min + 0.3f, landTo = hits.max - 0.3f;
+
+        var points = new List<(float d, float y)>();
+        foreach (var name in bubbles)
+        {
+            if (!s_Bubbles.TryGetValue(name, out var c)) continue;
+            points.Add((Vector2.Dot(new Vector2(c.x, c.z) - start, direction), c.y + bob));
+        }
+
+        float v = jumps ? Mathf.Sqrt(2f * jump.Gravity * jump.Jump) : 0f;
+        float y = y0, d = 0f, t = 0f;
+        var used = new bool[points.Count];
+        bool doubled = !doubleAt.HasValue;
+
+        while (t < 8f && y > 0f)
+        {
+            if (!doubled && t >= doubleAt.Value)
+            {
+                v = Mathf.Sqrt(2f * jump.Gravity * jump.DoubleJump);
+                doubled = true;
+            }
+
+            float scale = v < 0f ? jump.Fall : 1f;
+            if (Mathf.Abs(v) < jump.ApexThreshold) scale *= jump.Apex;
+
+            v -= jump.Gravity * scale * dt;
+            float previous = y;
+            y += v * dt;
+            d += speed * dt;
+            t += dt;
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                if (used[i] || new Vector2(d - points[i].d, y - points[i].y).magnitude > trigger) continue;
+
+                v = Mathf.Max(v, Mathf.Sqrt(2f * jump.Gravity * BubbleHeight));
+                used[i] = true;
+            }
+
+            if (v < 0f && previous > target.top && y <= target.top && d >= landFrom && d <= landTo)
+                return (true, d);
+        }
+
+        return (false, d);
+    }
+
+    /// <summary>Altura do quique da bolha, a mesma do AirBubble.</summary>
+    const float BubbleHeight = 4.5f;
+
+    static Vector2 Centroid(Vector2[] poly)
+    {
+        var sum = Vector2.zero;
+        foreach (var p in poly) sum += p;
+        return sum / poly.Length;
+    }
+
+    /// <summary>Onde o raio cruza o contorno: a primeira e a última distância.</summary>
+    static (float min, float max) RayHits(Vector2[] poly, Vector2 origin, Vector2 direction)
+    {
+        float min = float.MaxValue, max = float.MinValue;
+        for (int i = 0; i < poly.Length; i++)
+        {
+            var a = poly[i];
+            var e = poly[(i + 1) % poly.Length] - a;
+            float denominator = direction.x * e.y - direction.y * e.x;
+            if (Mathf.Abs(denominator) < 1e-6f) continue;
+
+            var w = a - origin;
+            float t = (w.x * e.y - w.y * e.x) / denominator;
+            float u = (w.x * direction.y - w.y * direction.x) / denominator;
+            if (u < 0f || u > 1f) continue;
+
+            min = Mathf.Min(min, t);
+            max = Mathf.Max(max, t);
+        }
+
+        return (min, max);
     }
 
     /// <summary>Arco do pulo, com a mesma gravidade em faixas do PlayerController.</summary>
