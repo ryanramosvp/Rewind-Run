@@ -64,7 +64,8 @@ public class KayKitCharacterPostprocessor : AssetPostprocessor
         importer.filterMode = FilterMode.Point;
         importer.anisoLevel = 1;
         importer.wrapMode = TextureWrapMode.Clamp;
-        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        // BC7: gradiente sem degraus em um quarto do tamanho (ver BuildTools).
+        importer.textureCompression = TextureImporterCompression.CompressedHQ;
     }
 
     /// <summary>

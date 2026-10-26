@@ -18,7 +18,19 @@ public class PlayerDebugHud : MonoBehaviour
     PlayerController _player;
     GUIStyle _style;
 
-    void Awake() => _player = GetComponent<PlayerController>();
+    void Awake()
+    {
+        // Só no Editor e em builds de desenvolvimento. Na build final ele sai
+        // de vez: o OnGUI custa a cada quadro mesmo escondido, e o F1 não pode
+        // abrir um painel de depuração na mão de quem está jogando.
+        if (!Application.isEditor && !Debug.isDebugBuild)
+        {
+            Destroy(this);
+            return;
+        }
+
+        _player = GetComponent<PlayerController>();
+    }
 
     void Update()
     {

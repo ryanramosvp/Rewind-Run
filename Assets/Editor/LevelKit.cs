@@ -145,11 +145,12 @@ public static class LevelKit
         }
 
         var settings = importer.defaultSampleSettings;
-        if (settings.loadType != AudioClipLoadType.Streaming || !importer.loadInBackground)
+        if (settings.loadType != AudioClipLoadType.Streaming || !importer.loadInBackground
+            || !Mathf.Approximately(settings.quality, BuildTools.MusicQuality))
         {
             settings.loadType = AudioClipLoadType.Streaming;
             settings.compressionFormat = AudioCompressionFormat.Vorbis;
-            settings.quality = 0.7f;
+            settings.quality = BuildTools.MusicQuality;
             importer.defaultSampleSettings = settings;
             importer.loadInBackground = true;
             importer.SaveAndReimport();

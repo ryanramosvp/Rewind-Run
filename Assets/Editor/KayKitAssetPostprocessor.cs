@@ -121,8 +121,9 @@ public class KayKitAssetPostprocessor : AssetPostprocessor
         importer.mipmapEnabled = true;
 
         // Cores chapadas e gradientes suaves são o pior caso do DXT (banding
-        // visível). São 4 MB de VRAM num atlas só - vale a troca.
-        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        // visível). O BC7 (CompressedHQ) não tem esse problema e ocupa um
+        // quarto do atlas sem compressão - ver BuildTools.
+        importer.textureCompression = TextureImporterCompression.CompressedHQ;
     }
 
     static bool IsSolidPiece(string fileName)
