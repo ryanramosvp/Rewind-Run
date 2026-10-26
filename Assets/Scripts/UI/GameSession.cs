@@ -51,6 +51,9 @@ public class GameSession : MonoBehaviour
         Instance = this;
         _startTime = Time.time;
         PreviousBest = SaveSystem.Get(LevelId).bestTime;
+
+        // Entrar já é progresso: é a fase que o Continuar vai abrir.
+        SaveSystem.EnterLevel(LevelId);
     }
 
     void OnDestroy()

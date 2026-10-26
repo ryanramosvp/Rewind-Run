@@ -499,6 +499,22 @@ public static class UiBuilder
         UnityEditor.Events.UnityEventTools.AddPersistentListener(slider.onValueChanged, action);
     }
 
+    /// <summary>Liga o botão a um método que recebe int, com o valor fixo gravado no vínculo.</summary>
+    public static void BindInt(Button button, Object target, string methodName, int argument)
+    {
+        var action = System.Delegate.CreateDelegate(typeof(UnityEngine.Events.UnityAction<int>),
+                                                    target, methodName, false, false)
+                     as UnityEngine.Events.UnityAction<int>;
+
+        if (action == null)
+        {
+            Debug.LogWarning($"Método '{methodName}' não encontrado em {target.GetType().Name}.");
+            return;
+        }
+
+        UnityEditor.Events.UnityEventTools.AddIntPersistentListener(button.onClick, action, argument);
+    }
+
     public static void Bind(Button button, Object target, string methodName)
     {
         var action = System.Delegate.CreateDelegate(typeof(UnityEngine.Events.UnityAction),

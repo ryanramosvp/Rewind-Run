@@ -42,9 +42,9 @@ public static class RampLevelBuilder
 
     // Provisórios: ~300 m de pista quase toda a 15 m/s, uns 21 s sem erro.
     // Recalibrar lendo o save depois de jogar.
-    static readonly float[] kRanks = { 24f, 30f, 38f, 50f, 70f };
+    static readonly float[] kRanks = { 28f, 35f, 44f, 58f, 80f };
 
-    const float kStartHeight = 175f;
+    const float kStartHeight = 192f;
     const float kThickness = 1.2f;
     const float kRimHeight = 1f;
     const float kRimWidth = 0.6f;
@@ -261,6 +261,7 @@ public static class RampLevelBuilder
         CreateTrack(Group(level, "Pista"));
         CreateStart(Group(level, "1_Largada"));
         CreateHoles(Group(level, "2_PrimeirosBuracos"));
+        CreateBubbleCrossing(Group(level, "2b_TravessiaDeBolhas"));
         CreateCorridor(Group(level, "3_CorredorDasBolas"));
         CreateFork(Group(level, "4_Bifurcacao"));
         CreateFinal(Group(level, "5_RetaFinal"));
@@ -323,6 +324,11 @@ public static class RampLevelBuilder
             Piece.Straight("Borda2", 5f, 5f, 10f),
             Piece.Gap(7.5f, 1.2f),
             Piece.Straight("Pouso2", 8f, 28f, 14f),
+
+            // Travessia de bolhas: sem chão, quicando de bolha em bolha.
+            Piece.Straight("BordaBolhas", 5f, 5f, 14f),
+            Piece.Gap(kBubbleGap, kBubbleDrop),
+            Piece.Straight("PousoBolhas", 10f, 28f, 14f),
 
             // 3 - Corredor das bolas, deslizando.
             Piece.Straight("Corredor", 40f, 28f, 15f),
@@ -607,6 +613,52 @@ public static class RampLevelBuilder
         Pillar(root, "Pilar1", At("CurvaDosPilares", 7f), -2.5f);
         Pillar(root, "Pilar2", At("CurvaDosPilares", 13f), 2.5f);
         Pillar(root, "Pilar3", At("CurvaDosPilares", 19f), -1.5f);
+    }
+
+    /// <summary>
+    /// Bolhas da travessia: metros à frente da borda, desvio lateral e altura
+    /// do centro em relação à borda.
+    /// </summary>
+    static readonly Vector3[] kBubbles =
+    {
+        new Vector3(0f, 1f, 10f),
+        new Vector3(2.5f, -2f, 21f),
+        new Vector3(-2.5f, -5f, 32f),
+        new Vector3(2.5f, -8f, 43f),
+        new Vector3(0f, -11f, 54f),
+    };
+
+    // Da borda ao pouso: 9 m depois da última bolha e 5,5 m abaixo dela.
+    const float kBubbleGap = 63f, kBubbleDrop = 16.5f;
+
+    /// <summary>
+    /// Travessia de bolhas: a mecânica da Torre de Bolhas, descendo.
+    ///
+    /// A rampa acaba numa borda e do outro lado só há lava, 63 m de vão e
+    /// cinco bolhas em zigue-zague. Nem o pulo duplo alcança o pouso; só
+    /// encadeando os quiques. Cada bolha fica 11 m à frente e 3 m abaixo da
+    /// anterior: quicando, a bruxa sobe 4,5 m e cai 7,5, o que dá 1,13 s no
+    /// ar - 12,4 m correndo a 11 m/s e 15 m embalada pelo deslize. A conta
+    /// fecha com folga para quem corre e pede frear no ar para quem vem
+    /// rápido demais: a travessia cobra o controle fino do salto, não
+    /// velocidade.
+    ///
+    /// A primeira bolha está 10 m depois da borda e um pouco acima dela, ao
+    /// alcance do pulo saindo do deslize. Errou, volta no tempo: as bolhas
+    /// estouradas voltam junto. Depois da última, o pouso é rampa de novo, e
+    /// o deslize recomeça direto no corredor.
+    /// </summary>
+    static void CreateBubbleCrossing(Transform root)
+    {
+        var lip = At("BordaBolhas", LengthOf("BordaBolhas"));
+        for (int i = 0; i < kBubbles.Length; i++)
+        {
+            var b = kBubbles[i];
+            var position = lip.Position + lip.Forward * b.z + lip.Right * b.x + Vector3.up * b.y;
+            LevelKit.Bubble(root, position, i * 0.2f).name = $"Bolha_Travessia{i + 1}";
+        }
+
+        LevelKit.Place(root, "neutral", "signage_arrows_left", lip.At(-6f) + lip.Forward * -2f, lip.Heading + 180f);
     }
 
     /// <summary>
@@ -1038,6 +1090,9 @@ public static class RampLevelBuilder
             report.Expect($"{lip} -> {landing} deslizando para fora sem pular", false, Leap(jump, lip, landing, 13.4f, false, null));
         }
 
+        report.Expect("BordaBolhas -> PousoBolhas sem as bolhas, nem com o duplo", false,
+                      Leap(jump, "BordaBolhas", "PousoBolhas", 13.4f, true, 0.5f));
+
         report.Section("Atalho da bifurcação");
         report.Expect("AtalhoBorda1 -> Atalho2 (6 m) deslizando", true, Leap(jump, "AtalhoBorda1", "Atalho2", 13.4f, true, null));
         report.Expect("AtalhoBorda1 -> Atalho2 sem pular", false, Leap(jump, "AtalhoBorda1", "Atalho2", 13.4f, false, null));
@@ -1060,7 +1115,7 @@ public static class RampLevelBuilder
         // própria malha: nas curvas a de fora é mais suave que o meio.
         report.Section("Deslize");
         var sliding = new[] { "Inicio", "CurvaInicial", "PrimeiroDeslize", "Pouso1", "CurvaDosPilares", "RetaDosPilares",
-                              "Pouso2", "Corredor", "Bifurcacao", "Segura1", "Segura2", "Segura3", "Atalho1", "Atalho2",
+                              "Pouso2", "PousoBolhas", "Corredor", "Bifurcacao", "Segura1", "Segura2", "Segura3", "Atalho1", "Atalho2",
                               "Atalho3", "Reencontro", "DescidaFinal", "CurvaFinal" };
         float gentlest = 90f; string where = "";
         foreach (var piece in sliding)
@@ -1136,7 +1191,9 @@ public static class RampLevelBuilder
         LayCourse();
 
         var order = new List<string> { "Largada", "Inicio", "CurvaInicial", "PrimeiroDeslize", "Borda1", "Pouso1",
-                                       "CurvaDosPilares", "RetaDosPilares", "Borda2", "Pouso2", "Corredor", "Bifurcacao" };
+                                       "CurvaDosPilares", "RetaDosPilares", "Borda2", "Pouso2", "BordaBolhas", "PousoBolhas",
+                                       "Corredor",
+                                       "Bifurcacao" };
         order.AddRange(shortcut ? new[] { "Atalho1", "AtalhoBorda1", "Atalho2", "AtalhoBorda2", "Atalho3" }
                                 : new[] { "Segura1", "Segura2", "Segura3" });
         order.AddRange(new[] { "Reencontro", "DescidaFinal", "CurvaFinal", "Borda3", "Chegada" });

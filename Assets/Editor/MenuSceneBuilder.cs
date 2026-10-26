@@ -148,26 +148,38 @@ public static class MenuSceneBuilder
 
         // Os botoes vivem num grupo proprio: as telas de controles e opcoes
         // escondem o grupo inteiro em vez de abrir por cima dele.
-        // Descidos de -40 para -130: é o que abre os 148 px de respiro entre a
-        // base do "RUN" e o topo do JOGAR, e ainda deixa o SAIR a 182 px do pé
-        // da tela.
+        // Seis botões de 84 px a cada 94: o grupo cresceu para cima e para
+        // baixo em volta do mesmo centro, e o topo do CONTINUAR ainda fica
+        // abaixo da base do "RUN".
         var group = UiBuilder.CreateRect(root, "Botoes", new Vector2(0f, 0.5f),
-                                         new Vector2(420f, -130f), new Vector2(560f, 520f));
+                                         new Vector2(420f, -130f), new Vector2(560f, 580f));
 
-        var play = UiBuilder.CreateButton(group, "JOGAR", new Vector2(0.5f, 0.5f),
-                                          new Vector2(0f, 150f), new Vector2(520f, 96f),
-                                          UiBuilder.Swatch.Laranja);
-        var controls = UiBuilder.CreateButton(group, "CONTROLES", new Vector2(0.5f, 0.5f),
-                                              new Vector2(0f, 40f), new Vector2(520f, 96f),
+        var size = new Vector2(520f, 84f);
+        var center = new Vector2(0.5f, 0.5f);
+        var resume = UiBuilder.CreateButton(group, "CONTINUAR", center, new Vector2(0f, 235f), size,
+                                            UiBuilder.Swatch.Laranja);
+        var levels = UiBuilder.CreateButton(group, "SELECIONAR FASE", center, new Vector2(0f, 141f), size,
+                                            UiBuilder.Swatch.Brasa);
+        var newGame = UiBuilder.CreateButton(group, "NOVO JOGO", center, new Vector2(0f, 47f), size,
+                                             UiBuilder.Swatch.Verde);
+        var controls = UiBuilder.CreateButton(group, "CONTROLES", center, new Vector2(0f, -47f), size,
                                               UiBuilder.Swatch.Ouro);
-        var settings = UiBuilder.CreateButton(group, "OPÇÕES", new Vector2(0.5f, 0.5f),
-                                              new Vector2(0f, -70f), new Vector2(520f, 96f),
+        var settings = UiBuilder.CreateButton(group, "OPÇÕES", center, new Vector2(0f, -141f), size,
                                               UiBuilder.Swatch.Terracota);
-        var quit = UiBuilder.CreateButton(group, "SAIR", new Vector2(0.5f, 0.5f),
-                                          new Vector2(0f, -180f), new Vector2(520f, 96f),
+        var quit = UiBuilder.CreateButton(group, "SAIR", center, new Vector2(0f, -235f), size,
                                           UiBuilder.Swatch.Ardosia);
 
-        UiBuilder.Bind(play, menu, nameof(MainMenu.Play));
+        // O nome da fase que o Continuar abre, pequeno, embaixo do rótulo.
+        var resumeLabel = (RectTransform)resume.transform.Find("Rotulo");
+        resumeLabel.anchoredPosition += new Vector2(0f, 12f);
+        resumeLabel.sizeDelta = new Vector2(resumeLabel.sizeDelta.x, 46f);
+        var resumeDetail = UiBuilder.CreateText(resume.transform, "Fase", "", 24, UiBuilder.Ash,
+                                                new Vector2(0.5f, 0.5f), new Vector2(14f, -24f),
+                                                new Vector2(440f, 28f));
+
+        UiBuilder.Bind(resume, menu, nameof(MainMenu.Continue));
+        UiBuilder.Bind(levels, menu, nameof(MainMenu.OpenLevelSelect));
+        UiBuilder.Bind(newGame, menu, nameof(MainMenu.NewGame));
         UiBuilder.Bind(controls, menu, nameof(MainMenu.OpenControls));
         UiBuilder.Bind(settings, menu, nameof(MainMenu.OpenSettings));
         UiBuilder.Bind(quit, menu, nameof(MainMenu.Quit));
@@ -177,13 +189,18 @@ public static class MenuSceneBuilder
         var options = CreateSettingsPanel(root, menu, out var optionsBack,
                                           out var timerLabel, out var speedLabel,
                                           out var timerPill, out var speedPill);
+        CreateLevelSelect(root, menu);
+        CreateConfirmation(root, menu);
 
+        EditorSetupUtil.SetReference(menu, "continueButton", resume);
+        EditorSetupUtil.SetReference(menu, "continueDetail", resumeDetail);
+        EditorSetupUtil.SetReference(menu, "newGameButton", newGame);
         EditorSetupUtil.SetReference(menu, "buttonsGroup", group.gameObject);
         EditorSetupUtil.SetReference(menu, "tutorialPanel", tutorial);
         EditorSetupUtil.SetReference(menu, "tutorialYesButton", tutorialYes);
         EditorSetupUtil.SetReference(menu, "controlsPanel", panel);
         EditorSetupUtil.SetReference(menu, "settingsPanel", options);
-        EditorSetupUtil.SetReference(menu, "firstButton", play);
+        EditorSetupUtil.SetReference(menu, "firstButton", newGame);
         EditorSetupUtil.SetReference(menu, "backButton", back);
         EditorSetupUtil.SetReference(menu, "settingsBackButton", optionsBack);
         EditorSetupUtil.SetReference(menu, "timerToggleLabel", timerLabel);
@@ -298,8 +315,8 @@ public static class MenuSceneBuilder
         UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
 
         var card = UiBuilder.CreateCard(holder, "Cartao", "OPÇÕES", UiBuilder.Swatch.Terracota,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 40f),
-                                        new Vector2(1020f, 580f), titleSize: 56);
+                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 60f),
+                                        new Vector2(1020f, 700f), titleSize: 56);
 
         var volume = UiBuilder.CreateSliderRow(card, "VOLUME", new Vector2(0f, 120f),
                                                new Vector2(940f, 96f), out var volumeLabel);
@@ -318,12 +335,111 @@ public static class MenuSceneBuilder
         EditorSetupUtil.SetReference(menu, "volumeSlider", volume);
         EditorSetupUtil.SetReference(menu, "volumeLabel", volumeLabel);
 
+        // Separado dos ajustes e em vermelho: é a única coisa do menu que não
+        // se desfaz. Abre uma confirmação, não apaga direto.
+        var wipe = UiBuilder.CreateButton(card, "APAGAR TODOS OS DADOS", new Vector2(0.5f, 0.5f),
+                                          new Vector2(0f, -215f), new Vector2(940f, 96f),
+                                          UiBuilder.Swatch.Vermelho);
+        UiBuilder.Bind(wipe, menu, nameof(MainMenu.AskDeleteAll));
+
         back = UiBuilder.CreateButton(holder, "VOLTAR", new Vector2(0.5f, 0.5f),
                                       new Vector2(0f, -390f), new Vector2(420f, 96f),
                                       UiBuilder.Swatch.Ardosia);
         UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
 
         return holder.gameObject;
+    }
+
+    /// <summary>
+    /// Seleção de fases: uma linha por fase da <see cref="Campaign"/>, com o
+    /// nome à esquerda e o recorde à direita. O texto de cada linha é escrito
+    /// pelo MainMenu ao abrir a tela, a partir do save - aqui só a estrutura.
+    /// </summary>
+    static void CreateLevelSelect(Transform root, MainMenu menu)
+    {
+        var holder = UiBuilder.CreateStretched(root, "TelaDeFases");
+        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
+
+        int count = Campaign.Levels.Length;
+        const float rowHeight = 100f, step = 115f;
+        float cardHeight = 86f + 40f + count * step + 20f;
+
+        var card = UiBuilder.CreateCard(holder, "Cartao", "SELECIONAR FASE", UiBuilder.Swatch.Brasa,
+                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 60f),
+                                        new Vector2(1100f, cardHeight), titleSize: 56);
+
+        var buttons = new Button[count];
+        var titles = new Text[count];
+        var details = new Text[count];
+
+        float y = cardHeight * 0.5f - 86f - 30f - rowHeight * 0.5f;
+        for (int i = 0; i < count; i++, y -= step)
+        {
+            var button = UiBuilder.CreateButton(card, $"FASE {i + 1}", new Vector2(0.5f, 0.5f),
+                                                new Vector2(0f, y), new Vector2(1000f, rowHeight),
+                                                UiBuilder.Swatch.Laranja);
+
+            // O rótulo do botão vira o nome, alinhado à esquerda na metade
+            // dele; o recorde ocupa a outra metade, alinhado à direita.
+            var title = button.transform.Find("Rotulo").GetComponent<Text>();
+            title.alignment = TextAnchor.MiddleLeft;
+            var titleRect = title.rectTransform;
+            titleRect.sizeDelta = new Vector2(470f, titleRect.sizeDelta.y);
+            titleRect.anchoredPosition = new Vector2(40f + 235f, 0f);
+
+            details[i] = UiBuilder.CreateText(button.transform, "Recorde", "", 32, UiBuilder.Ash,
+                                              new Vector2(1f, 0.5f), new Vector2(-24f - 225f, 0f),
+                                              new Vector2(450f, rowHeight - 18f), TextAnchor.MiddleRight);
+
+            UiBuilder.BindInt(button, menu, nameof(MainMenu.PlayLevel), i);
+            buttons[i] = button;
+            titles[i] = title;
+        }
+
+        var back = UiBuilder.CreateButton(holder, "VOLTAR", new Vector2(0.5f, 0.5f),
+                                          new Vector2(0f, 60f - cardHeight * 0.5f - 80f), new Vector2(420f, 96f),
+                                          UiBuilder.Swatch.Ardosia);
+        UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
+
+        EditorSetupUtil.SetReference(menu, "levelSelectPanel", holder.gameObject);
+        EditorSetupUtil.SetReferences(menu, "levelButtons", buttons);
+        EditorSetupUtil.SetReferences(menu, "levelTitles", titles);
+        EditorSetupUtil.SetReferences(menu, "levelDetails", details);
+        EditorSetupUtil.SetReference(menu, "levelSelectBackButton", back);
+    }
+
+    /// <summary>
+    /// Confirmação do Novo jogo e do apagar dados. Uma tela só, com título e
+    /// texto trocados pelo MainMenu. Cancelar fica em cima e recebe o foco:
+    /// quem aperta Enter sem ler não perde nada.
+    /// </summary>
+    static void CreateConfirmation(Transform root, MainMenu menu)
+    {
+        var holder = UiBuilder.CreateStretched(root, "TelaDeConfirmacao");
+        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.92f));
+
+        var card = UiBuilder.CreateCard(holder, "Cartao", "TEM CERTEZA?", UiBuilder.Swatch.Vermelho,
+                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 110f),
+                                        new Vector2(1000f, 330f), titleSize: 52);
+
+        var title = card.Find("Titulo").GetComponent<Text>();
+        var message = UiBuilder.CreateText(card, "Mensagem", "", 38, UiBuilder.Ash, new Vector2(0.5f, 0.5f),
+                                           new Vector2(0f, -40f), new Vector2(900f, 180f));
+
+        var cancel = UiBuilder.CreateButton(holder, "CANCELAR", new Vector2(0.5f, 0.5f),
+                                            new Vector2(0f, -150f), new Vector2(700f, 96f),
+                                            UiBuilder.Swatch.Ardosia);
+        var confirm = UiBuilder.CreateButton(holder, "CONFIRMAR", new Vector2(0.5f, 0.5f),
+                                             new Vector2(0f, -260f), new Vector2(700f, 96f),
+                                             UiBuilder.Swatch.Vermelho);
+
+        UiBuilder.Bind(cancel, menu, nameof(MainMenu.CancelConfirm));
+        UiBuilder.Bind(confirm, menu, nameof(MainMenu.Confirm));
+
+        EditorSetupUtil.SetReference(menu, "confirmPanel", holder.gameObject);
+        EditorSetupUtil.SetReference(menu, "confirmTitle", title);
+        EditorSetupUtil.SetReference(menu, "confirmMessage", message);
+        EditorSetupUtil.SetReference(menu, "confirmCancelButton", cancel);
     }
 
     static void CreateLighting()
