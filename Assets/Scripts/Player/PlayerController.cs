@@ -36,21 +36,35 @@ public class PlayerController : MonoBehaviour
 
     [Tooltip("Aceleração no ar. Menor que a do chão dá peso ao pulo sem tirar o controle. " +
              "Com 40 a bruxa chegava à velocidade máxima em 0,28 s no ar e parecia sem peso; " +
-             "com 22 leva meio segundo, metade de um pulo.")]
-    [SerializeField, Min(0f)] float airAcceleration = 22f;
+             "com 22 leva meio segundo, metade de um pulo, e ainda parecia leve; " +
+             "com 15 o pulo é decidido no chão e o ar só corrige.")]
+    [SerializeField, Min(0f)] float airAcceleration = 15f;
 
     [Tooltip("Graus por segundo que a velocidade pode girar no ar. É o que " +
              "separa curvar de derrapar na diagonal. Com 360 dava para dar meia-volta " +
-             "no ar em 0,33 s sem perder velocidade nenhuma.")]
-    [SerializeField, Min(0f)] float airTurnSpeed = 180f;
+             "no ar em 0,33 s sem perder velocidade nenhuma; com 180 uma curva de 90 " +
+             "graus levava meio segundo e ainda parecia leve. Com 110, perto de um pulo inteiro.")]
+    [SerializeField, Min(0f)] float airTurnSpeed = 110f;
 
-    [Tooltip("Freada no ar quando o direcional aponta contra o embalo, em m/s².")]
-    [SerializeField, Min(0f)] float airBrake = 24f;
+    [Tooltip("Freada no ar quando o direcional aponta contra o embalo, em m/s². " +
+             "É o freio de quem vai passar da plataforma: com 16, parar de 11 m/s levava " +
+             "0,7 s, quase o pulo inteiro, e o jogador passava do pouso sem conseguir corrigir.")]
+    [SerializeField, Min(0f)] float airBrake = 30f;
+
+    [Tooltip("Perda de velocidade no ar com o direcional solto, em m/s². Soltar no meio do " +
+             "salto encurta o pulo. Só vale até a velocidade normal de corrida: o embalo " +
+             "extra de hop, rampa, bolha ou plataforma continua sobrevivendo ao voo.")]
+    [SerializeField, Min(0f)] float airReleaseDrag = 9f;
 
     [Tooltip("A partir de quantos graus entre o embalo e o direcional o ar freia em vez de girar.")]
     [SerializeField, Range(90f, 180f)] float airReverseAngle = 120f;
 
     [SerializeField, Min(0f)] float turnSpeed = 900f;
+
+    [Tooltip("Giro do modelo no ar, em graus por segundo. No chão ela vira na hora; no ar, " +
+             "com os mesmos 900, o corpo acompanhava cada toque no direcional e era isso " +
+             "que mais parecia sem peso.")]
+    [SerializeField, Min(0f)] float airTurnVisualSpeed = 300f;
 
     [Header("Pulo")]
     [Tooltip("Altura em metros de um pulo com o botão segurado até o fim.")]
@@ -282,10 +296,15 @@ public class PlayerController : MonoBehaviour
         // O deslocamento da plataforma entra somado, não como velocidade: ele
         // já é a distância deste frame, e o CharacterController não carrega
         // ninguém sozinho.
-        Vector3 carry = _platform != null && _controller.isGrounded ? _platform.Delta : Vector3.zero;
+        bool groundedBeforeMove = _controller.isGrounded;
+        Vector3 carry = _platform != null && groundedBeforeMove ? _platform.Delta : Vector3.zero;
         _controller.Move((_horizontalVelocity + Vector3.up * _verticalVelocity) * dt + carry);
 
-        if (State == PlayerMoveState.Slide) StickToSlope();
+        // Correndo ladeira abaixo também: sem isto, numa descida longa abaixo
+        // do ângulo do slide, a bruxa a 11 m/s saía do chão a cada passo -
+        // ficava "no ar" a descida inteira, sem pulo de chão e com o controle
+        // aéreo no lugar da corrida.
+        if (State == PlayerMoveState.Slide || groundedBeforeMove) StickToSlope();
     }
 
     /// <summary>
@@ -582,20 +601,28 @@ public class PlayerController : MonoBehaviour
     /// não velocidade. A soma depois ainda existe para quem salta parado ou
     /// vinha devagar.
     ///
-    /// Soltar o direcional continua não tirando nada: o excesso que vier do
-    /// hop, de uma bolha ou de uma plataforma sobrevive ao voo.
+    /// Soltar o direcional freia devagar (airReleaseDrag) - é o jeito de
+    /// encurtar um salto que ia passar da plataforma. Mas só até a velocidade
+    /// de corrida: o excesso que vier do hop, da rampa, de uma bolha ou de uma
+    /// plataforma sobrevive ao voo, senão os atalhos que dependem dele
+    /// deixariam de fechar.
     ///
     /// O que mudou foi a meia-volta. Girar sempre preservando o módulo deixava
     /// a bruxa inverter o sentido no ar em 0,33 s a 11 m/s, sem perder nada -
     /// o embalo inteiro mudava de lado como se não tivesse massa, e numa
     /// correção pequena ela respondia demais. Agora, apontar CONTRA o embalo
     /// freia primeiro; só depois de parar ela acelera para o outro lado, e a
-    /// meia-volta leva cerca de um segundo. Curvas abaixo do ângulo de
+    /// meia-volta leva pouco mais de um segundo. Curvas abaixo do ângulo de
     /// inversão seguem girando como antes, só mais devagar.
     /// </summary>
     Vector3 AirControl(Vector3 current, Vector3 wish, float targetSpeed, float dt)
     {
-        if (wish.sqrMagnitude < 0.0001f) return current;
+        if (wish.sqrMagnitude < 0.0001f)
+        {
+            return current.magnitude <= targetSpeed + 0.5f
+                ? Vector3.MoveTowards(current, Vector3.zero, airReleaseDrag * dt)
+                : current;
+        }
 
         float speed = current.magnitude;
 
@@ -644,7 +671,8 @@ public class PlayerController : MonoBehaviour
         if (lookDirection.sqrMagnitude < 0.001f) return;
 
         var look = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
-        visual.rotation = Quaternion.RotateTowards(visual.rotation, look, turnSpeed * dt);
+        float speed = _controller.isGrounded || IsWallSliding ? turnSpeed : airTurnVisualSpeed;
+        visual.rotation = Quaternion.RotateTowards(visual.rotation, look, speed * dt);
     }
 
     void UpdateVertical(float dt)

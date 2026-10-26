@@ -27,8 +27,9 @@ public static class RebuildAll
         SpeedrunLevelBuilder.Build();
         BubbleLevelBuilder.Build();
         VolcanoLevelBuilder.Build();
+        RampLevelBuilder.Build();
 
-        Debug.Log("Reconstruído: bruxa, menu, tutorial, Corrida de Lava, Torre de Bolhas e Terra da Lava Letal. " +
+        Debug.Log("Reconstruído: bruxa, menu, tutorial, Corrida de Lava, Torre de Bolhas, Terra da Lava Letal e Rampa Vulcânica. " +
                   "A bancada de testes não entra aqui - ela é separada de propósito, " +
                   "para não sobrescrever o que você estiver conferindo nela.");
     }

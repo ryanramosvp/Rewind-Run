@@ -50,6 +50,7 @@ GameObject:
   - component: {fileID: 1771858677194585596}
   - component: {fileID: 8748781876147543461}
   - component: {fileID: 4129738744796908046}
+  - component: {fileID: 6054881024116493804}
   - component: {fileID: 2443739791080390858}
   m_Layer: 0
   m_Name: Bruxa
@@ -130,11 +131,13 @@ MonoBehaviour:
   moveSpeed: 11
   groundAcceleration: 70
   groundDeceleration: 80
-  airAcceleration: 22
-  airTurnSpeed: 180
-  airBrake: 24
+  airAcceleration: 15
+  airTurnSpeed: 110
+  airBrake: 30
+  airReleaseDrag: 9
   airReverseAngle: 120
   turnSpeed: 900
+  airTurnVisualSpeed: 300
   jumpHeight: 3.2
   doubleJumpHeight: 2.8
   airJumps: 1
@@ -347,6 +350,23 @@ MonoBehaviour:
   jump: {fileID: 8300000, guid: 3ebab7a62f414564f806893c26308509, type: 3}
   volume: 0.45
   airJumpPitch: 1.2
+--- !u!114 &6054881024116493804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8002811151075786783}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91eac3525f0da6a45a033918e45ef5c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDropShadow
+  material: {fileID: 2100000, guid: b323d40e97b3650489d8c9b3c3eb916c, type: 2}
+  size: 1.4
+  shrinkHeight: 12
+  minScale: 0.7
+  maxDistance: 80
 --- !u!114 &2443739791080390858
 MonoBehaviour:
   m_ObjectHideFlags: 0

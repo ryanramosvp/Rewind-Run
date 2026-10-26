@@ -233,11 +233,41 @@ public static class WitchSetup
         EditorSetupUtil.SetReference(audio, "jump",
             AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/pulo.mp3"));
 
+        var shadow = root.AddComponent<PlayerDropShadow>();
+        EditorSetupUtil.SetReference(shadow, "material", DropShadowMaterial());
+
         root.AddComponent<PlayerDebugHud>();
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
         Object.DestroyImmediate(root);
         return prefab;
+    }
+
+    const string kShadowFolder = "Assets/Art/Generated/Bruxa";
+
+    /// <summary>
+    /// Material da sombra de pouso: URP Unlit, opaco, quase preto com um
+    /// fundo de vermelho para não destoar da luz da lava.
+    /// </summary>
+    static Material DropShadowMaterial()
+    {
+        System.IO.Directory.CreateDirectory(kShadowFolder);
+
+        string path = kShadowFolder + "/SombraDePouso.mat";
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (material == null)
+        {
+            material = new Material(shader) { name = "SombraDePouso" };
+            AssetDatabase.CreateAsset(material, path);
+        }
+
+        material.shader = shader;
+        material.SetColor("_BaseColor", new Color(0.09f, 0.04f, 0.035f));
+
+        EditorUtility.SetDirty(material);
+        AssetDatabase.SaveAssets();
+        return material;
     }
 
     static void AddStateEntry(AnimatorStateMachine machine, AnimatorState state, int value)

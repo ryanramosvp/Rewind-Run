@@ -359,7 +359,8 @@ public static class MenuSceneBuilder
                             TutorialLevelBuilder.ScenePath,
                             "Assets/Scenes/Level_CorridaDeLava.unity",
                             "Assets/Scenes/Level_TorreDeBolhas.unity",
-                            VolcanoLevelBuilder.ScenePath };
+                            VolcanoLevelBuilder.ScenePath,
+                            RampLevelBuilder.ScenePath };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
 
         foreach (var path in wanted)
