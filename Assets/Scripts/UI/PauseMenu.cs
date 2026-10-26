@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -27,7 +28,7 @@ public class PauseMenu : MonoBehaviour
     [SerializeField] string menuScene = "Menu";
 
     [SerializeField] Slider volumeSlider;
-    [SerializeField] Text volumeLabel;
+    [SerializeField] TMP_Text volumeLabel;
 
     EndScreen _endScreen;
     bool _paused;
@@ -49,14 +50,18 @@ public class PauseMenu : MonoBehaviour
     void Update()
     {
         var keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        var pad = Gamepad.current;
 
         // P além de Esc. No Editor do Unity o Esc é reservado para soltar o
         // cursor quando ele está preso, e nesse caso não chega ao jogo - o que
         // deixaria a pausa intestável justo onde ela é testada. Na build o Esc
         // funciona normalmente; o P existe para o Editor e não atrapalha.
-        bool pedido = keyboard.escapeKey.wasPressedThisFrame
-                      || keyboard.pKey.wasPressedThisFrame;
+        bool pedido = (keyboard != null && (keyboard.escapeKey.wasPressedThisFrame
+                                            || keyboard.pKey.wasPressedThisFrame))
+                      || (pad != null && pad.startButton.wasPressedThisFrame);
+
+        // Com a pausa aberta, o B do controle também volta a correr.
+        if (_paused && pad != null && pad.buttonEast.wasPressedThisFrame) pedido = true;
 
         if (!pedido) return;
 

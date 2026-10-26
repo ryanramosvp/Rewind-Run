@@ -42,6 +42,23 @@ public static class EditorSetupUtil
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
+    /// <summary>Mesma ideia da <see cref="SetReference"/>, para cores.</summary>
+    public static void SetColor(Object target, string fieldName, Color value)
+    {
+        if (target == null) return;
+
+        var serialized = new SerializedObject(target);
+        var property = serialized.FindProperty(fieldName);
+        if (property == null)
+        {
+            Debug.LogWarning($"Campo '{fieldName}' não existe em {target.GetType().Name}.");
+            return;
+        }
+
+        property.colorValue = value;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     /// <summary>Mesma ideia da <see cref="SetReference"/>, para listas de referências.</summary>
     public static void SetReferences(Object target, string fieldName, Object[] values)
     {

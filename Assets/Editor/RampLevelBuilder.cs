@@ -268,7 +268,8 @@ public static class RampLevelBuilder
         CreateScenery(Group(level, "Cenario"));
 
         var spawn = At("Largada", 4f);
-        var player = LevelKit.AssembleSystems(kRanks);
+        // Última fase: a vitória leva à tela de resultados da campanha.
+        var player = LevelKit.AssembleSystems(kRanks, ResultsSceneBuilder.SceneName, "ver resultados");
         if (player != null)
             player.transform.SetPositionAndRotation(spawn.Position + Vector3.up * 0.3f,
                                                     Quaternion.Euler(0f, spawn.Heading, 0f));

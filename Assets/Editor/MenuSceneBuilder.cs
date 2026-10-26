@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -29,10 +30,7 @@ public static class MenuSceneBuilder
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         KayKitMaterialSetup.Apply();
 
-        CreateLighting();
-        var focus = CreateDiorama();
-        var volume = CreateRewindVolume();
-        var camera = CreateCamera(focus, volume);
+        var camera = BuildBackdrop();
 
         CreateInterface();
         LevelKit.CreateAudio();
@@ -43,6 +41,19 @@ public static class MenuSceneBuilder
 
         Debug.Log($"Menu criado em {kScenePath}. Ele é a primeira cena do build.");
         Selection.activeGameObject = camera;
+    }
+
+    /// <summary>
+    /// O cenário do menu inteiro: luz, vulcão em miniatura, lava e a câmera que
+    /// orbita e rebobina. Público porque a tela de resultados da campanha usa o
+    /// mesmo fundo - o jogo começa e termina no mesmo lugar.
+    /// </summary>
+    public static GameObject BuildBackdrop()
+    {
+        CreateLighting();
+        var focus = CreateDiorama();
+        var volume = CreateRewindVolume();
+        return CreateCamera(focus, volume);
     }
 
     /// <summary>
@@ -144,45 +155,61 @@ public static class MenuSceneBuilder
         var root = canvas.transform;
         var menu = canvas.gameObject.AddComponent<MainMenu>();
 
-        CreateTitle(root);
+        // Pela altura: o logotipo preso ao topo e os botões ao meio ficam
+        // sempre na mesma relação, e numa tela mais larga (21:9) sobra
+        // largura em vez de faltar altura. A coluna fica à esquerda e o
+        // vulcão, no meio, continua livre.
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
+
+        var theme = ThemedUi.Theme;
+
+        // Escurece o lado do menu sem tampar o cenário: é o que deixa o texto
+        // legível por cima da lava acesa.
+        var shade = ThemedUi.Stretched(root, "Sombra", theme.shade, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.88f));
+        shade.type = Image.Type.Simple;
+        shade.rectTransform.anchorMax = new Vector2(0f, 1f);
+        shade.rectTransform.offsetMax = new Vector2(1150f, 0f);
+
+        var logo = ThemedUi.Logo(root, new Vector2(0f, 1f), new Vector2(450f, -200f));
 
         // Os botoes vivem num grupo proprio: as telas de controles e opcoes
         // escondem o grupo inteiro em vez de abrir por cima dele.
-        // Seis botões de 84 px a cada 94: o grupo cresceu para cima e para
-        // baixo em volta do mesmo centro, e o topo do CONTINUAR ainda fica
-        // abaixo da base do "RUN".
         var group = UiBuilder.CreateRect(root, "Botoes", new Vector2(0f, 0.5f),
-                                         new Vector2(420f, -130f), new Vector2(560f, 580f));
+                                         new Vector2(420f, -150f), new Vector2(600f, 560f));
 
-        var size = new Vector2(520f, 84f);
-        var center = new Vector2(0.5f, 0.5f);
-        var resume = UiBuilder.CreateButton(group, "CONTINUAR", center, new Vector2(0f, 235f), size,
-                                            UiBuilder.Swatch.Laranja);
-        var levels = UiBuilder.CreateButton(group, "SELECIONAR FASE", center, new Vector2(0f, 141f), size,
-                                            UiBuilder.Swatch.Brasa);
-        var newGame = UiBuilder.CreateButton(group, "NOVO JOGO", center, new Vector2(0f, 47f), size,
-                                             UiBuilder.Swatch.Verde);
-        var controls = UiBuilder.CreateButton(group, "CONTROLES", center, new Vector2(0f, -47f), size,
-                                              UiBuilder.Swatch.Ouro);
-        var settings = UiBuilder.CreateButton(group, "OPÇÕES", center, new Vector2(0f, -141f), size,
-                                              UiBuilder.Swatch.Terracota);
-        var quit = UiBuilder.CreateButton(group, "SAIR", center, new Vector2(0f, -235f), size,
-                                          UiBuilder.Swatch.Ardosia);
-
-        // O nome da fase que o Continuar abre, pequeno, embaixo do rótulo.
-        var resumeLabel = (RectTransform)resume.transform.Find("Rotulo");
-        resumeLabel.anchoredPosition += new Vector2(0f, 12f);
-        resumeLabel.sizeDelta = new Vector2(resumeLabel.sizeDelta.x, 46f);
-        var resumeDetail = UiBuilder.CreateText(resume.transform, "Fase", "", 24, UiBuilder.Ash,
-                                                new Vector2(0.5f, 0.5f), new Vector2(14f, -24f),
-                                                new Vector2(440f, 28f));
+        var size = new Vector2(560f, 92f);
+        var resume = ThemedUi.MenuButton(group, "CONTINUAR", new Vector2(0f, 212f), size,
+                                         out var resumeSlot, out var resumeDetail, withDetail: true);
+        var levels = ThemedUi.MenuButton(group, "SELECIONAR FASE", new Vector2(0f, 106f), size,
+                                         out var levelsSlot, out _);
+        var newGame = ThemedUi.MenuButton(group, "NOVO JOGO", new Vector2(0f, 0f), size,
+                                          out var newGameSlot, out _);
+        var settings = ThemedUi.MenuButton(group, "CONFIGURAÇÕES", new Vector2(0f, -106f), size,
+                                           out var settingsSlot, out _);
+        var quit = ThemedUi.MenuButton(group, "SAIR", new Vector2(0f, -212f), size,
+                                       out var quitSlot, out _);
 
         UiBuilder.Bind(resume, menu, nameof(MainMenu.Continue));
         UiBuilder.Bind(levels, menu, nameof(MainMenu.OpenLevelSelect));
         UiBuilder.Bind(newGame, menu, nameof(MainMenu.NewGame));
-        UiBuilder.Bind(controls, menu, nameof(MainMenu.OpenControls));
         UiBuilder.Bind(settings, menu, nameof(MainMenu.OpenSettings));
         UiBuilder.Bind(quit, menu, nameof(MainMenu.Quit));
+
+        // Entrada: o logotipo cai do alto, os botões vêm da esquerda em
+        // cascata. Cada um com o seu, no mesmo ritmo.
+        var logoIntro = logo.gameObject.AddComponent<UiIntroSequence>();
+        EditorSetupUtil.SetReferences(logoIntro, "items", new Object[] { logo });
+        SetVector2(logoIntro, "offset", new Vector2(0f, 40f));
+
+        var buttonsIntro = group.gameObject.AddComponent<UiIntroSequence>();
+        EditorSetupUtil.SetReferences(buttonsIntro, "items",
+                                      new Object[] { resumeSlot, levelsSlot, newGameSlot, settingsSlot, quitSlot });
+        LevelKit.SetFloat(buttonsIntro, "startDelay", 0.15f);
+
+        ThemedUi.Text(root, "Dica", "SETAS / ANALÓGICO  navegar      ENTER / A  confirmar      ESC / B  voltar",
+                      22f, new Color(theme.ash.r, theme.ash.g, theme.ash.b, 0.75f), new Vector2(0f, 0f),
+                      new Vector2(470f, 44f), new Vector2(860f, 30f), TextAlignmentOptions.MidlineLeft,
+                      bold: false, spacing: 2f);
 
         var tutorial = CreateTutorialPrompt(root, menu, out var tutorialYes);
         var panel = CreateControlsPanel(root, menu, out var back);
@@ -209,36 +236,10 @@ public static class MenuSceneBuilder
         EditorSetupUtil.SetReference(menu, "speedPill", speedPill);
     }
 
-    /// <summary>
-    /// Titulo a esquerda, com uma barra de brasa por baixo.
-    ///
-    /// Fica de lado e nao centralizado porque o vulcao esta no meio da tela:
-    /// centralizado, o texto cobriria justamente a coisa que o fundo existe
-    /// para mostrar.
-    /// </summary>
-    static void CreateTitle(Transform root)
-    {
-        // Ancorado no TOPO, não no meio. Título e botões estavam os dois
-        // presos ao centro da tela, a 230 e a -40 - e com as letras em 130 px o
-        // "RUN" descia 42 px por cima do botão JOGAR. Preso ao topo, o título
-        // se afasta dos botões em tela alta em vez de se aproximar.
-        var card = UiBuilder.CreateRect(root, "Titulo", new Vector2(0f, 1f),
-                                        new Vector2(430f, -210f), new Vector2(760f, 240f));
-
-        UiBuilder.CreateText(card, "Nome", "REWIND", 130, UiBuilder.Sand,
-                             new Vector2(0.5f, 0.5f), new Vector2(0f, 58f), new Vector2(760f, 160f),
-                             TextAnchor.MiddleLeft, FontStyle.Bold);
-
-        UiBuilder.CreateText(card, "Sobrenome", "RUN", 130, UiBuilder.Ember,
-                             new Vector2(0.5f, 0.5f), new Vector2(0f, -66f), new Vector2(760f, 160f),
-                             TextAnchor.MiddleLeft, FontStyle.Bold);
-
-        UiBuilder.CreateBlock(card, "Barra", UiBuilder.Swatch.Brasa, new Vector2(0.5f, 0.5f),
-                              new Vector2(-150f, -10f), new Vector2(440f, 10f));
-    }
+    static Color Dim(UiTheme theme, float alpha) => new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, alpha);
 
     /// <summary>
-    /// A pergunta que o JOGAR faz antes de carregar a fase.
+    /// A pergunta que o Novo jogo faz antes de carregar a fase.
     ///
     /// O tutorial é a opção de cima e a que já vem selecionada: quem aperta
     /// Enter sem ler é justamente quem ainda não conhece os comandos. Quem já
@@ -246,87 +247,82 @@ public static class MenuSceneBuilder
     /// </summary>
     static GameObject CreateTutorialPrompt(Transform root, MainMenu menu, out Button yes)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(root, "TelaDoTutorial");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.9f));
+        ThemedUi.Backdrop(holder, Dim(theme, 0.9f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "PRIMEIRA CORRIDA?", UiBuilder.Swatch.Laranja,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 110f),
-                                        new Vector2(1000f, 330f), titleSize: 52);
+        var card = ThemedUi.Card(holder, "Cartao", "PRIMEIRA CORRIDA?", new Vector2(0f, 130f),
+                                 new Vector2(1040f, 330f), out _);
+        ThemedUi.Text(card, "Pergunta",
+                      "Quer fazer o tutorial? Ele mostra os comandos um por um, no próprio vulcão, " +
+                      "e depois segue para a primeira fase.",
+                      34f, theme.sand, new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(920f, 160f),
+                      bold: false).textWrappingMode = TextWrappingModes.Normal;
 
-        UiBuilder.CreateText(card, "Pergunta",
-                             "Quer fazer o tutorial? Ele mostra os comandos um por um, " +
-                             "no próprio vulcão, e depois segue para a primeira fase.",
-                             38, UiBuilder.Ash, new Vector2(0.5f, 0.5f), new Vector2(0f, -40f),
-                             new Vector2(900f, 180f));
+        yes = ThemedUi.MenuButton(holder, "FAZER O TUTORIAL", new Vector2(0f, -130f), new Vector2(700f, 92f),
+                                  out var yesSlot, out _);
+        var no = ThemedUi.MenuButton(holder, "IR DIRETO PARA A FASE", new Vector2(0f, -236f),
+                                     new Vector2(700f, 92f), out var noSlot, out _);
 
-        yes = UiBuilder.CreateButton(holder, "FAZER O TUTORIAL", new Vector2(0.5f, 0.5f),
-                                     new Vector2(0f, -150f), new Vector2(700f, 96f),
-                                     UiBuilder.Swatch.Laranja);
-        var no = UiBuilder.CreateButton(holder, "IR DIRETO PARA A FASE", new Vector2(0.5f, 0.5f),
-                                        new Vector2(0f, -260f), new Vector2(700f, 96f),
-                                        UiBuilder.Swatch.Ardosia);
-
-        UiBuilder.CreateText(holder, "Dica", "Esc para voltar", 30, UiBuilder.Ash,
-                             new Vector2(0.5f, 0.5f), new Vector2(0f, -360f),
-                             new Vector2(700f, 50f));
+        Hint(holder, "ESC / B  voltar", -330f);
 
         UiBuilder.Bind(yes, menu, nameof(MainMenu.PlayTutorial));
         UiBuilder.Bind(no, menu, nameof(MainMenu.SkipTutorial));
 
+        ThemedUi.Intro(holder, card, yesSlot, noSlot);
         return holder.gameObject;
     }
 
     static GameObject CreateControlsPanel(Transform root, MainMenu menu, out Button back)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(root, "TelaDeControles");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
+        ThemedUi.Backdrop(holder, Dim(theme, 0.94f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "CONTROLES", UiBuilder.Swatch.Ouro,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 40f),
-                                        new Vector2(1040f, 660f), titleSize: 56);
+        var card = ThemedUi.Card(holder, "Cartao", "CONTROLES", new Vector2(0f, 50f), new Vector2(1100f, 640f), out _);
 
         float y = 150f;
         foreach (var (key, description) in new[]
         {
-            ("WASD", "mover"),
-            ("ESPAÇO", "pular, e de novo no ar"),
-            ("ESPAÇO", "na parede, salto de parede"),
-            ("BOTÃO DIR.", "segurar: voltar no tempo"),
-            ("ESC ou P", "pausar"),
+            ("WASD / ANALÓG.", "mover"),
+            ("ESPAÇO / A", "pular, e de novo no ar"),
+            ("ESPAÇO / A", "encostada na parede: salto de parede"),
+            ("BOTÃO DIR. / LB", "segurar: voltar no tempo"),
+            ("ESC / START", "pausar"),
         })
         {
-            UiBuilder.CreateKeyRow(card, key, description, y, 1040f);
+            ThemedUi.KeyRow(card, key, description, y, 1100f);
             y -= 82f;
         }
 
-        back = UiBuilder.CreateButton(holder, "VOLTAR", new Vector2(0.5f, 0.5f),
-                                      new Vector2(0f, -400f), new Vector2(420f, 96f),
-                                      UiBuilder.Swatch.Ardosia);
-        UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
+        back = ThemedUi.MenuButton(holder, "VOLTAR", new Vector2(0f, -370f), new Vector2(420f, 92f),
+                                   out var backSlot, out _);
+        UiBuilder.Bind(back, menu, nameof(MainMenu.OpenSettings));
 
+        ThemedUi.Intro(holder, card, backSlot);
         return holder.gameObject;
     }
 
     static GameObject CreateSettingsPanel(Transform root, MainMenu menu, out Button back,
-                                          out Text timerLabel, out Text speedLabel,
+                                          out TMP_Text timerLabel, out TMP_Text speedLabel,
                                           out Image timerPill, out Image speedPill)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(root, "TelaDeOpcoes");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
+        ThemedUi.Backdrop(holder, Dim(theme, 0.94f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "OPÇÕES", UiBuilder.Swatch.Terracota,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 60f),
-                                        new Vector2(1020f, 700f), titleSize: 56);
+        var card = ThemedUi.Card(holder, "Cartao", "CONFIGURAÇÕES", new Vector2(0f, 80f), new Vector2(1060f, 700f),
+                                 out _);
+        var row = new Vector2(960f, 88f);
 
-        var volume = UiBuilder.CreateSliderRow(card, "VOLUME", new Vector2(0f, 120f),
-                                               new Vector2(940f, 96f), out var volumeLabel);
+        var volume = ThemedUi.SliderRow(card, "VOLUME", new Vector2(0f, 190f), row, out var volumeLabel, out _);
 
-        var timerButton = UiBuilder.CreateToggleRow(card, "CRONÔMETRO", new Vector2(0f, 10f),
-                                                    new Vector2(940f, 96f),
-                                                    out timerLabel, out timerPill);
-        var speedButton = UiBuilder.CreateToggleRow(card, "VELOCIDADE", new Vector2(0f, -100f),
-                                                    new Vector2(940f, 96f),
-                                                    out speedLabel, out speedPill);
+        var timerButton = ThemedUi.ToggleRow(card, "CRONÔMETRO", new Vector2(0f, 88f), row,
+                                             out var timerState, out timerPill, out _);
+        var speedButton = ThemedUi.ToggleRow(card, "VELOCIDADE", new Vector2(0f, -14f), row,
+                                             out var speedState, out speedPill, out _);
+        timerLabel = timerState;
+        speedLabel = speedState;
 
         UiBuilder.Bind(timerButton, menu, nameof(MainMenu.ToggleTimer));
         UiBuilder.Bind(speedButton, menu, nameof(MainMenu.ToggleSpeed));
@@ -335,76 +331,97 @@ public static class MenuSceneBuilder
         EditorSetupUtil.SetReference(menu, "volumeSlider", volume);
         EditorSetupUtil.SetReference(menu, "volumeLabel", volumeLabel);
 
-        // Separado dos ajustes e em vermelho: é a única coisa do menu que não
-        // se desfaz. Abre uma confirmação, não apaga direto.
-        var wipe = UiBuilder.CreateButton(card, "APAGAR TODOS OS DADOS", new Vector2(0.5f, 0.5f),
-                                          new Vector2(0f, -215f), new Vector2(940f, 96f),
-                                          UiBuilder.Swatch.Vermelho);
-        UiBuilder.Bind(wipe, menu, nameof(MainMenu.AskDeleteAll));
+        // Os controles moram aqui agora: o menu principal ficou só com as
+        // cinco ações de campanha e o Sair.
+        var controls = ThemedUi.MenuButton(card, "CONTROLES", new Vector2(0f, -116f), row, out _, out _);
+        UiBuilder.Bind(controls, menu, nameof(MainMenu.OpenControls));
 
-        back = UiBuilder.CreateButton(holder, "VOLTAR", new Vector2(0.5f, 0.5f),
-                                      new Vector2(0f, -390f), new Vector2(420f, 96f),
-                                      UiBuilder.Swatch.Ardosia);
+        // Por último e separado por um fio: é a única coisa do menu que não
+        // se desfaz. Abre uma confirmação, não apaga direto.
+        var line = UiBuilder.CreateRect(card, "Separador", new Vector2(0.5f, 0.5f), new Vector2(0f, -180f),
+                                        new Vector2(900f, 2f)).gameObject.AddComponent<Image>();
+        line.color = new Color(theme.metal.r, theme.metal.g, theme.metal.b, 0.5f);
+        line.raycastTarget = false;
+
+        var wipe = ThemedUi.MenuButton(card, "APAGAR TODOS OS DADOS", new Vector2(0f, -246f), row, out _, out _);
+        UiBuilder.Bind(wipe, menu, nameof(MainMenu.AskDeleteAll));
+        var wipeMarker = wipe.transform.Find("Marcador").GetComponent<Image>();
+        wipeMarker.color = theme.danger;
+
+        back = ThemedUi.MenuButton(holder, "VOLTAR", new Vector2(0f, -350f), new Vector2(420f, 92f),
+                                   out var backSlot, out _);
         UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
 
+        ThemedUi.Intro(holder, card, backSlot);
         return holder.gameObject;
     }
 
     /// <summary>
     /// Seleção de fases: uma linha por fase da <see cref="Campaign"/>, com o
-    /// nome à esquerda e o recorde à direita. O texto de cada linha é escrito
-    /// pelo MainMenu ao abrir a tela, a partir do save - aqui só a estrutura.
+    /// nome à esquerda, o recorde e a nota à direita. O texto de cada linha é
+    /// escrito pelo MainMenu ao abrir a tela, a partir do save - aqui só a
+    /// estrutura.
     /// </summary>
     static void CreateLevelSelect(Transform root, MainMenu menu)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(root, "TelaDeFases");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.95f));
+        ThemedUi.Backdrop(holder, Dim(theme, 0.94f));
 
         int count = Campaign.Levels.Length;
-        const float rowHeight = 100f, step = 115f;
-        float cardHeight = 86f + 40f + count * step + 20f;
+        const float rowHeight = 100f, step = 114f;
+        float cardHeight = ThemedUi.CardHeader + 20f + count * step + 24f;
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "SELECIONAR FASE", UiBuilder.Swatch.Brasa,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 60f),
-                                        new Vector2(1100f, cardHeight), titleSize: 56);
+        var card = ThemedUi.Card(holder, "Cartao", "SELECIONAR FASE", new Vector2(0f, 70f),
+                                 new Vector2(1300f, cardHeight), out _);
 
         var buttons = new Button[count];
-        var titles = new Text[count];
-        var details = new Text[count];
+        var titles = new TMP_Text[count];
+        var details = new TMP_Text[count];
+        var letters = new TMP_Text[count];
+        var slots = new RectTransform[count + 2];
+        slots[0] = card;
 
-        float y = cardHeight * 0.5f - 86f - 30f - rowHeight * 0.5f;
+        float y = cardHeight * 0.5f - ThemedUi.CardHeader - 20f - rowHeight * 0.5f;
         for (int i = 0; i < count; i++, y -= step)
         {
-            var button = UiBuilder.CreateButton(card, $"FASE {i + 1}", new Vector2(0.5f, 0.5f),
-                                                new Vector2(0f, y), new Vector2(1000f, rowHeight),
-                                                UiBuilder.Swatch.Laranja);
+            var button = ThemedUi.MenuButton(card, $"FASE {i + 1}", new Vector2(0f, y), new Vector2(1200f, rowHeight),
+                                             out slots[i + 1], out _);
 
-            // O rótulo do botão vira o nome, alinhado à esquerda na metade
-            // dele; o recorde ocupa a outra metade, alinhado à direita.
-            var title = button.transform.Find("Rotulo").GetComponent<Text>();
-            title.alignment = TextAnchor.MiddleLeft;
+            // O rótulo do botão vira o nome, na metade esquerda; o recorde e
+            // a letra da nota ficam na direita.
+            var title = button.transform.Find("Rotulo").GetComponent<TextMeshProUGUI>();
             var titleRect = title.rectTransform;
-            titleRect.sizeDelta = new Vector2(470f, titleRect.sizeDelta.y);
-            titleRect.anchoredPosition = new Vector2(40f + 235f, 0f);
+            titleRect.sizeDelta = new Vector2(560f, titleRect.sizeDelta.y);
+            titleRect.anchoredPosition = new Vector2(62f + 280f, 0f);
+            title.fontSizeMax = 36f;
 
-            details[i] = UiBuilder.CreateText(button.transform, "Recorde", "", 32, UiBuilder.Ash,
-                                              new Vector2(1f, 0.5f), new Vector2(-24f - 225f, 0f),
-                                              new Vector2(450f, rowHeight - 18f), TextAnchor.MiddleRight);
+            details[i] = ThemedUi.Text(button.transform, "Recorde", "", 24f, theme.ash, new Vector2(1f, 0.5f),
+                                       new Vector2(-120f - 180f, 0f), new Vector2(360f, 40f),
+                                       TextAlignmentOptions.MidlineRight, spacing: 2f);
+            letters[i] = ThemedUi.Text(button.transform, "Nota", "", 64f, theme.gold, new Vector2(1f, 0.5f),
+                                       new Vector2(-62f, 0f), new Vector2(76f, 80f), material: theme.titleMaterial);
+
+            // O recorde acompanha o destaque do botão, como uma segunda linha.
+            var view = button.GetComponent<MenuButtonView>();
+            EditorSetupUtil.SetReference(view, "detail", details[i]);
 
             UiBuilder.BindInt(button, menu, nameof(MainMenu.PlayLevel), i);
             buttons[i] = button;
             titles[i] = title;
         }
 
-        var back = UiBuilder.CreateButton(holder, "VOLTAR", new Vector2(0.5f, 0.5f),
-                                          new Vector2(0f, 60f - cardHeight * 0.5f - 80f), new Vector2(420f, 96f),
-                                          UiBuilder.Swatch.Ardosia);
+        var back = ThemedUi.MenuButton(holder, "VOLTAR", new Vector2(0f, 70f - cardHeight * 0.5f - 76f),
+                                       new Vector2(420f, 92f), out slots[count + 1], out _);
         UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
+
+        ThemedUi.Intro(holder, slots);
 
         EditorSetupUtil.SetReference(menu, "levelSelectPanel", holder.gameObject);
         EditorSetupUtil.SetReferences(menu, "levelButtons", buttons);
         EditorSetupUtil.SetReferences(menu, "levelTitles", titles);
         EditorSetupUtil.SetReferences(menu, "levelDetails", details);
+        EditorSetupUtil.SetReferences(menu, "levelRanks", letters);
         EditorSetupUtil.SetReference(menu, "levelSelectBackButton", back);
     }
 
@@ -415,31 +432,46 @@ public static class MenuSceneBuilder
     /// </summary>
     static void CreateConfirmation(Transform root, MainMenu menu)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(root, "TelaDeConfirmacao");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.035f, 0.92f));
+        ThemedUi.Backdrop(holder, Dim(theme, 0.92f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "TEM CERTEZA?", UiBuilder.Swatch.Vermelho,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 110f),
-                                        new Vector2(1000f, 330f), titleSize: 52);
+        var card = ThemedUi.Card(holder, "Cartao", "TEM CERTEZA?", new Vector2(0f, 130f), new Vector2(1040f, 330f),
+                                 out var title);
+        var message = ThemedUi.Text(card, "Mensagem", "", 34f, theme.sand, new Vector2(0.5f, 0.5f),
+                                    new Vector2(0f, -50f), new Vector2(920f, 160f), bold: false);
+        message.textWrappingMode = TextWrappingModes.Normal;
 
-        var title = card.Find("Titulo").GetComponent<Text>();
-        var message = UiBuilder.CreateText(card, "Mensagem", "", 38, UiBuilder.Ash, new Vector2(0.5f, 0.5f),
-                                           new Vector2(0f, -40f), new Vector2(900f, 180f));
-
-        var cancel = UiBuilder.CreateButton(holder, "CANCELAR", new Vector2(0.5f, 0.5f),
-                                            new Vector2(0f, -150f), new Vector2(700f, 96f),
-                                            UiBuilder.Swatch.Ardosia);
-        var confirm = UiBuilder.CreateButton(holder, "CONFIRMAR", new Vector2(0.5f, 0.5f),
-                                             new Vector2(0f, -260f), new Vector2(700f, 96f),
-                                             UiBuilder.Swatch.Vermelho);
+        var cancel = ThemedUi.MenuButton(holder, "CANCELAR", new Vector2(0f, -130f), new Vector2(700f, 92f),
+                                         out var cancelSlot, out _);
+        var confirm = ThemedUi.MenuButton(holder, "CONFIRMAR", new Vector2(0f, -236f), new Vector2(700f, 92f),
+                                          out var confirmSlot, out _);
+        confirm.transform.Find("Marcador").GetComponent<Image>().color = theme.danger;
 
         UiBuilder.Bind(cancel, menu, nameof(MainMenu.CancelConfirm));
         UiBuilder.Bind(confirm, menu, nameof(MainMenu.Confirm));
+
+        ThemedUi.Intro(holder, card, cancelSlot, confirmSlot);
 
         EditorSetupUtil.SetReference(menu, "confirmPanel", holder.gameObject);
         EditorSetupUtil.SetReference(menu, "confirmTitle", title);
         EditorSetupUtil.SetReference(menu, "confirmMessage", message);
         EditorSetupUtil.SetReference(menu, "confirmCancelButton", cancel);
+    }
+
+    /// <summary>Linha de teclas no pé de um painel.</summary>
+    static void Hint(Transform parent, string text, float y)
+    {
+        var theme = ThemedUi.Theme;
+        ThemedUi.Text(parent, "Dica", text, 24f, new Color(theme.ash.r, theme.ash.g, theme.ash.b, 0.8f),
+                      new Vector2(0.5f, 0.5f), new Vector2(0f, y), new Vector2(800f, 34f), bold: false, spacing: 2f);
+    }
+
+    static void SetVector2(Object target, string field, Vector2 value)
+    {
+        var serialized = new SerializedObject(target);
+        serialized.FindProperty(field).vector2Value = value;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
     static void CreateLighting()
@@ -476,7 +508,8 @@ public static class MenuSceneBuilder
                             "Assets/Scenes/Level_CorridaDeLava.unity",
                             "Assets/Scenes/Level_TorreDeBolhas.unity",
                             VolcanoLevelBuilder.ScenePath,
-                            RampLevelBuilder.ScenePath };
+                            RampLevelBuilder.ScenePath,
+                            ResultsSceneBuilder.ScenePath };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
 
         foreach (var path in wanted)

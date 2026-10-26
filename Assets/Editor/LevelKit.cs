@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -113,9 +114,11 @@ public static class LevelKit
     /// telas de fim, já ligados entre si.
     /// </summary>
     /// <param name="rankSeconds">Limites de S, A, B, C e D, em segundos e crescendo.</param>
-    public static GameObject AssembleSystems(float[] rankSeconds, string nextLevelScene = null)
+    /// <param name="nextLevelLabel">Como a tela de vitória chama o que vem depois. Vazio é "próxima fase".</param>
+    public static GameObject AssembleSystems(float[] rankSeconds, string nextLevelScene = null,
+                                             string nextLevelLabel = null)
     {
-        var player = AssembleSystemsWithoutSession(nextLevelScene);
+        var player = AssembleSystemsWithoutSession(nextLevelScene, nextLevelLabel);
         CreateSession(rankSeconds);
         return player;
     }
@@ -125,13 +128,14 @@ public static class LevelKit
     /// tempo a bater, e um relógio correndo enquanto se lê a instrução diria o
     /// contrário.
     /// </summary>
-    public static GameObject AssembleSystemsWithoutSession(string nextLevelScene = null)
+    public static GameObject AssembleSystemsWithoutSession(string nextLevelScene = null,
+                                                           string nextLevelLabel = null)
     {
         var player = CreatePlayer();
         CreateRewindManager();
 
         var hud = CreateHud(player);
-        CreateEndScreens(nextLevelScene);
+        CreateEndScreens(nextLevelScene, nextLevelLabel);
         CreatePauseMenu();
         CreateAudio();
 
@@ -300,33 +304,70 @@ public static class LevelKit
         EditorSetupUtil.SetFloats(session, "rankSeconds", rankSeconds);
     }
 
-    /// <summary>Cronômetro, barra de velocidade e contador de corrente.</summary>
+    /// <summary>
+    /// HUD da fase: placar no canto de cima à esquerda (tempo e mortes),
+    /// indicador do rewind no canto de baixo à esquerda e a barra de
+    /// velocidade, opcional, embaixo no meio.
+    ///
+    /// Tudo nos cantos. O meio da tela é onde estão a bruxa, o próximo vão e
+    /// o que vem rolando, e a câmera olha morro abaixo - o alto do centro é
+    /// justamente onde a pista aparece. Os cantos da esquerda mostram céu ou
+    /// lava distante em todas as fases.
+    /// </summary>
     public static SpeedrunHud CreateHud(GameObject player)
     {
+        var theme = ThemedUi.Theme;
         var canvas = UiBuilder.CreateCanvas("HUD", sortOrder: 5);
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
         var root = canvas.transform;
         var hud = canvas.gameObject.AddComponent<SpeedrunHud>();
 
-        // Cronometro no alto, dentro de um bloco de areia: o numero precisa de
-        // fundo proprio para ser legivel sobre lava em movimento.
-        var timerGroup = UiBuilder.CreateRect(root, "Cronometro", new Vector2(0.5f, 1f),
-                                              new Vector2(0f, -76f), new Vector2(440f, 112f));
-        UiBuilder.CreateBlock(timerGroup, "Fundo", UiBuilder.Swatch.Ardosia,
-                              new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(400f, 104f), 0.92f);
-        UiBuilder.CreateBlock(timerGroup, "Fio", UiBuilder.Swatch.Laranja,
-                              new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(400f, 8f));
+        // Placar: as duas placas lado a lado num grupo com layout, para a de
+        // mortes encostar no canto quando o cronômetro é desligado nas opções.
+        var board = UiBuilder.CreateRect(root, "Placar", new Vector2(0f, 1f), new Vector2(28f, -24f),
+                                         new Vector2(520f, 100f));
+        board.pivot = new Vector2(0f, 1f);
+        var layout = board.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
 
-        var timer = UiBuilder.CreateText(timerGroup, "Tempo", "00:00,00", 62, UiBuilder.Sand,
-                                         new Vector2(0.5f, 0.5f), new Vector2(0f, 4f),
-                                         new Vector2(400f, 90f), style: FontStyle.Bold);
+        var stone = new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.9f);
+
+        var timerPlate = ThemedUi.Plate(board, "Cronometro", new Vector2(0f, 1f), new Vector2(0f, 1f),
+                                        Vector2.zero, new Vector2(330f, 100f), stone, out var timerFrame);
+        timerFrame.color = theme.metalDark;
+        ThemedUi.Text(timerPlate.transform, "Rotulo", "TEMPO", 17f, theme.ash, new Vector2(0f, 1f),
+                      new Vector2(165f, -24f), new Vector2(270f, 22f), TextAlignmentOptions.MidlineLeft,
+                      spacing: 10f);
+        var timer = ThemedUi.Text(timerPlate.transform, "Tempo", "00:00,00", 52f, theme.sand, new Vector2(0f, 0f),
+                                  new Vector2(165f, 36f), new Vector2(270f, 60f), TextAlignmentOptions.MidlineLeft,
+                                  material: theme.titleMaterial);
+
+        var deathsPlate = ThemedUi.Plate(board, "Mortes", new Vector2(0f, 1f), new Vector2(0f, 1f),
+                                         Vector2.zero, new Vector2(150f, 100f), stone, out var deathsFrame);
+        deathsFrame.color = theme.metalDark;
+        ThemedUi.Text(deathsPlate.transform, "Rotulo", "MORTES", 17f, theme.ash, new Vector2(0.5f, 1f),
+                      new Vector2(0f, -24f), new Vector2(120f, 22f), spacing: 6f);
+        var deaths = ThemedUi.Text(deathsPlate.transform, "Contagem", "0", 52f, theme.gold, new Vector2(0.5f, 0f),
+                                   new Vector2(0f, 36f), new Vector2(120f, 60f), material: theme.titleMaterial);
+        var pulse = deaths.gameObject.AddComponent<UiPulse>();
+        EditorSetupUtil.SetReference(pulse, "text", deaths);
+        EditorSetupUtil.SetColor(pulse, "flashColor", theme.danger);
 
         var speedGroup = UiBuilder.CreateRect(root, "Velocidade", new Vector2(0.5f, 0f),
-                                              new Vector2(0f, 128f), new Vector2(460f, 60f));
-        UiBuilder.CreateBlock(speedGroup, "Trilho", UiBuilder.Swatch.Ardosia,
-                              new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(424f, 26f), 0.9f);
+                                              new Vector2(0f, 48f), new Vector2(440f, 30f));
+        var speedTrack = ThemedUi.Plate(speedGroup, "Trilho", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                        Vector2.zero, new Vector2(440f, 30f), stone, out var speedFrame);
+        speedFrame.color = theme.metalDark;
+        speedTrack.pixelsPerUnitMultiplier = 3f;
+        speedFrame.pixelsPerUnitMultiplier = 3f;
 
         var fillRect = UiBuilder.CreateRect(speedGroup, "Preenchimento", new Vector2(0.5f, 0.5f),
-                                            Vector2.zero, new Vector2(412f, 16f));
+                                            Vector2.zero, new Vector2(416f, 10f));
         var fill = fillRect.gameObject.AddComponent<Image>();
         fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
         fill.type = Image.Type.Filled;
@@ -334,8 +375,11 @@ public static class LevelKit
         fill.color = UiBuilder.Ember;
         fill.raycastTarget = false;
 
-        EditorSetupUtil.SetReference(hud, "timerGroup", timerGroup.gameObject);
+        EditorSetupUtil.SetReference(hud, "timerGroup", timerPlate.gameObject);
         EditorSetupUtil.SetReference(hud, "timerLabel", timer);
+        EditorSetupUtil.SetReference(hud, "deathsGroup", deathsPlate.gameObject);
+        EditorSetupUtil.SetReference(hud, "deathsLabel", deaths);
+        EditorSetupUtil.SetReference(hud, "deathsPulse", pulse);
         EditorSetupUtil.SetReference(hud, "speedGroup", speedGroup.gameObject);
         EditorSetupUtil.SetReference(hud, "speedFill", fill);
 
@@ -346,26 +390,52 @@ public static class LevelKit
         return hud;
     }
 
+    /// <summary>
+    /// Indicador do rewind: ícone, barra de carga fina e o comando escrito.
+    /// Pequeno e no canto - fica quase apagado com a carga cheia e só acende
+    /// quando há o que dizer (ver <see cref="RewindHud"/>).
+    /// </summary>
     public static void CreateRewindBar(Transform root)
     {
-        var sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        var theme = ThemedUi.Theme;
 
-        var bar = UiBuilder.CreatePanel(root, "BarraDeRewind", new Color(0f, 0f, 0f, 0.55f),
-                                        new Vector2(0.5f, 0f), new Vector2(0f, 60f),
-                                        new Vector2(420f, 26f));
+        var chip = ThemedUi.Plate(root, "Rewind", new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 24f),
+                                  new Vector2(330f, 72f), new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.88f),
+                                  out var frame);
+        frame.color = theme.metalDark;
 
-        var fillRect = UiBuilder.CreateRect(bar.transform, "Preenchimento", new Vector2(0.5f, 0.5f),
-                                            Vector2.zero, new Vector2(412f, 18f));
+        // 72 px de altura não comportam os 36 + 36 de borda da moldura.
+        chip.pixelsPerUnitMultiplier = 1.4f;
+        frame.pixelsPerUnitMultiplier = 1.4f;
+
+        var icon = ThemedUi.Icon(chip.transform, "Icone", theme.rewindIcon, Color.white, new Vector2(0f, 0.5f),
+                                 new Vector2(42f, 0f), new Vector2(40f, 40f));
+
+        var hint = ThemedUi.Text(chip.transform, "Comando", "SEGURE  BOTÃO DIREITO", 17f, theme.ash,
+                                 new Vector2(0f, 0.5f), new Vector2(76f + 115f, 12f), new Vector2(230f, 22f),
+                                 TextAlignmentOptions.MidlineLeft, spacing: 3f);
+
+        var track = UiBuilder.CreateRect(chip.transform, "Trilho", new Vector2(0f, 0.5f), new Vector2(76f + 115f, -13f),
+                                         new Vector2(230f, 10f));
+        var trackImage = track.gameObject.AddComponent<Image>();
+        trackImage.color = new Color(0f, 0f, 0f, 0.6f);
+        trackImage.raycastTarget = false;
+
+        var fillRect = UiBuilder.CreateRect(track, "Preenchimento", new Vector2(0.5f, 0.5f), Vector2.zero,
+                                            new Vector2(226f, 6f));
         var fill = fillRect.gameObject.AddComponent<Image>();
-        fill.sprite = sprite;
+        fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
         fill.type = Image.Type.Filled;
         fill.fillMethod = Image.FillMethod.Horizontal;
+        fill.raycastTarget = false;
 
-        var group = bar.gameObject.AddComponent<CanvasGroup>();
-        var hud = bar.gameObject.AddComponent<RewindHud>();
+        var group = chip.gameObject.AddComponent<CanvasGroup>();
+        var hud = chip.gameObject.AddComponent<RewindHud>();
 
         EditorSetupUtil.SetReference(hud, "chargeFill", fill);
         EditorSetupUtil.SetReference(hud, "canvasGroup", group);
+        EditorSetupUtil.SetReference(hud, "icon", icon);
+        EditorSetupUtil.SetReference(hud, "hintLabel", hint);
     }
 
     /// <summary>
@@ -385,38 +455,32 @@ public static class LevelKit
     /// </summary>
     public static void CreatePauseMenu()
     {
+        var theme = ThemedUi.Theme;
         var canvas = UiBuilder.CreateCanvas("Pausa", sortOrder: 15);
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
         var pause = canvas.gameObject.AddComponent<PauseMenu>();
 
         var holder = UiBuilder.CreateStretched(canvas.transform, "Painel");
-        UiBuilder.CreateFullScreen(holder, "Fundo", new Color(0.05f, 0.03f, 0.04f, 0.88f));
+        ThemedUi.Backdrop(holder, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.86f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "PAUSA", UiBuilder.Swatch.Ardosia,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, 20f),
-                                        new Vector2(860f, 600f), titleSize: 56);
+        var card = ThemedUi.Card(holder, "Cartao", "PAUSA", new Vector2(0f, 30f), new Vector2(900f, 560f), out _);
+        var row = new Vector2(800f, 88f);
 
-        var volume = UiBuilder.CreateSliderRow(card, "VOLUME", new Vector2(0f, 150f),
-                                               new Vector2(780f, 92f), out var volumeLabel);
+        var volume = ThemedUi.SliderRow(card, "VOLUME", new Vector2(0f, 120f), row, out var volumeLabel, out _);
+        var resume = ThemedUi.MenuButton(card, "RETOMAR", new Vector2(0f, 14f), row, out _, out _);
+        var restart = ThemedUi.MenuButton(card, "REINICIAR", new Vector2(0f, -92f), row, out _, out _);
+        var quit = ThemedUi.MenuButton(card, "MENU", new Vector2(0f, -198f), row, out _, out _);
 
-        var resume = UiBuilder.CreateButton(card, "RETOMAR", new Vector2(0.5f, 0.5f),
-                                            new Vector2(0f, 36f), new Vector2(700f, 96f),
-                                            UiBuilder.Swatch.Laranja);
-        var restart = UiBuilder.CreateButton(card, "REINICIAR", new Vector2(0.5f, 0.5f),
-                                             new Vector2(0f, -74f), new Vector2(700f, 96f),
-                                             UiBuilder.Swatch.Ouro);
-        var quit = UiBuilder.CreateButton(card, "MENU", new Vector2(0.5f, 0.5f),
-                                          new Vector2(0f, -184f), new Vector2(700f, 96f),
-                                          UiBuilder.Swatch.Terracota);
-
-        UiBuilder.CreateText(holder, "Dica", "Esc para voltar a correr", 30, UiBuilder.Ash,
-                             new Vector2(0.5f, 0.5f), new Vector2(0f, -350f),
-                             new Vector2(700f, 50f));
+        ThemedUi.Text(holder, "Dica", "ESC / START  voltar a correr", 24f,
+                      new Color(theme.ash.r, theme.ash.g, theme.ash.b, 0.8f), new Vector2(0.5f, 0.5f),
+                      new Vector2(0f, -300f), new Vector2(800f, 34f), bold: false, spacing: 2f);
 
         UiBuilder.Bind(resume, pause, nameof(PauseMenu.Resume));
         UiBuilder.Bind(restart, pause, nameof(PauseMenu.Restart));
         UiBuilder.Bind(quit, pause, nameof(PauseMenu.ToMenu));
-
         UiBuilder.BindFloat(volume, pause, nameof(PauseMenu.OnVolumeChanged));
+
+        ThemedUi.Intro(holder, card);
 
         EditorSetupUtil.SetReference(pause, "panel", holder.gameObject);
         EditorSetupUtil.SetReference(pause, "firstButton", resume);
@@ -424,9 +488,10 @@ public static class LevelKit
         EditorSetupUtil.SetReference(pause, "volumeLabel", volumeLabel);
     }
 
-    public static void CreateEndScreens(string nextLevelScene = null)
+    public static void CreateEndScreens(string nextLevelScene = null, string nextLevelLabel = null)
     {
         var canvas = UiBuilder.CreateCanvas("TelasDeFim", sortOrder: 20);
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
         var screen = canvas.gameObject.AddComponent<EndScreen>();
 
         var death = BuildDeath(canvas.transform, out var deathText);
@@ -439,6 +504,8 @@ public static class LevelKit
 
         if (!string.IsNullOrEmpty(nextLevelScene))
             EditorSetupUtil.SetString(screen, "nextLevelScene", nextLevelScene);
+        if (!string.IsNullOrEmpty(nextLevelLabel))
+            EditorSetupUtil.SetString(screen, "nextLevelLabel", nextLevelLabel);
 
         var finish = Object.FindAnyObjectByType<LevelFinish>();
         if (finish != null) EditorSetupUtil.SetReference(finish, "endScreen", screen);
@@ -447,67 +514,63 @@ public static class LevelKit
         victory.SetActive(false);
     }
 
-    public static GameObject BuildDeath(Transform parent, out Text summary)
+    public static GameObject BuildDeath(Transform parent, out TMP_Text summary)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(parent, "TelaDeMorte");
 
         // Tintura translucida: ver onde se morreu ensina mais que um fundo preto.
-        UiBuilder.CreateFullScreen(holder, "Tintura", new Color(0.45f, 0.08f, 0.03f, 0.55f));
+        ThemedUi.Backdrop(holder, new Color(0.45f, 0.08f, 0.03f, 0.5f));
 
-        var card = UiBuilder.CreateCard(holder, "Cartao", "NÃO FOI DESSA VEZ",
-                                        UiBuilder.Swatch.Vermelho, new Vector2(0.5f, 0.5f),
-                                        Vector2.zero, new Vector2(920f, 420f), titleSize: 52);
+        var card = ThemedUi.Card(holder, "Cartao", "NÃO FOI DESSA VEZ", Vector2.zero, new Vector2(920f, 400f), out var title);
+        title.colorGradient = new VertexGradient(theme.molten, theme.molten, theme.danger, theme.danger);
 
-        // Quatro linhas de 38px pedem 220 de altura; os 180 de antes cortavam
-        // a ultima agora que o texto trunca em vez de transbordar.
-        summary = UiBuilder.CreateText(card, "Resumo", string.Empty, 38, UiBuilder.Ash,
-                                       new Vector2(0.5f, 0.5f), new Vector2(0f, -46f),
-                                       new Vector2(840f, 240f));
+        var text = ThemedUi.Text(card, "Resumo", string.Empty, 34f, theme.sand, new Vector2(0.5f, 0.5f),
+                                 new Vector2(0f, -50f), new Vector2(820f, 220f), bold: false);
+        text.textWrappingMode = TextWrappingModes.Normal;
+        summary = text;
 
+        ThemedUi.Intro(holder, card);
         return holder.gameObject;
     }
 
     /// <summary>
-    /// Tela de vitória, em quatro faixas de cima para baixo: o veredito (rank
+    /// Tela de vitória, em quatro faixas de cima para baixo: o veredito (nota
     /// e os três números), a escada de ranks, o registro do save e as teclas.
     ///
     /// A escada é horizontal, de S a F, porque é uma régua: lida da esquerda
     /// para a direita, o degrau aceso diz onde se está e os vizinhos dizem
     /// quanto falta e quanto sobrou, sem precisar ler uma tabela.
     /// </summary>
-    public static GameObject BuildVictory(Transform parent, EndScreen screen, out Text summary)
+    public static GameObject BuildVictory(Transform parent, EndScreen screen, out TMP_Text summary)
     {
+        var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(parent, "TelaDeVitoria");
-        UiBuilder.CreateFullScreen(holder, "Tintura", new Color(0.05f, 0.03f, 0.07f, 0.9f));
+        ThemedUi.Backdrop(holder, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.9f));
 
         // 1500 x 920 numa referência de 1920 x 1080: sobra 80 px em cima e
         // embaixo, e a escada de seis degraus cabe sem espremer os tempos.
-        var card = UiBuilder.CreateCard(holder, "Cartao", "CHEGOU", UiBuilder.Swatch.Ouro,
-                                        new Vector2(0.5f, 0.5f), Vector2.zero,
-                                        new Vector2(1500f, 920f), titleSize: 56);
+        var card = ThemedUi.Card(holder, "Cartao", "CHEGOU", Vector2.zero, new Vector2(1500f, 920f), out _);
 
         // --- veredito ---------------------------------------------------
-        UiBuilder.CreatePanel(card, "FundoDoRank", new Color(0.16f, 0.18f, 0.19f, 0.95f),
-                              new Vector2(0.5f, 0.5f), new Vector2(-545f, 205f), new Vector2(300f, 280f));
-        UiBuilder.CreateText(card, "RotuloDoRank", "RANK", 30, UiBuilder.Ash,
-                             new Vector2(0.5f, 0.5f), new Vector2(-545f, 315f), new Vector2(260f, 40f),
-                             style: FontStyle.Bold);
-        var rank = UiBuilder.CreateText(card, "Rank", "-", 200, UiBuilder.Gold,
-                                        new Vector2(0.5f, 0.5f), new Vector2(-545f, 185f),
-                                        new Vector2(280f, 230f), style: FontStyle.Bold);
+        var rankPlate = ThemedUi.Plate(card, "FundoDaNota", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                       new Vector2(-545f, 205f), new Vector2(300f, 280f), theme.stone, out var rankFrame);
+        rankFrame.color = theme.gold;
+        ThemedUi.Text(rankPlate.transform, "Rotulo", "NOTA", 26f, theme.ash, new Vector2(0.5f, 1f),
+                      new Vector2(0f, -36f), new Vector2(240f, 34f), spacing: 10f);
+        var rank = ThemedUi.Text(rankPlate.transform, "Nota", "-", 190f, theme.gold, new Vector2(0.5f, 0.5f),
+                                 new Vector2(0f, -22f), new Vector2(260f, 210f), material: theme.titleMaterial);
 
         // Três blocos lado a lado, para comparar de relance.
-        var timeValue = UiBuilder.CreateStat(card, "Tempo", "TEMPO", UiBuilder.Swatch.Areia,
-                                             new Vector2(-185f, 255f), new Vector2(320f, 150f));
-        var fallsValue = UiBuilder.CreateStat(card, "Mortes", "MORTES", UiBuilder.Swatch.Terracota,
-                                              new Vector2(155f, 255f), new Vector2(320f, 150f));
-        var bestValue = UiBuilder.CreateStat(card, "Recorde", "RECORDE ANTERIOR", UiBuilder.Swatch.Ouro,
-                                             new Vector2(495f, 255f), new Vector2(320f, 150f));
+        var timeValue = ThemedUi.Stat(card, "Tempo", "TEMPO", new Vector2(-185f, 255f), new Vector2(320f, 150f), theme.sand);
+        var fallsValue = ThemedUi.Stat(card, "Mortes", "MORTES", new Vector2(155f, 255f), new Vector2(320f, 150f), theme.sand);
+        var bestValue = ThemedUi.Stat(card, "Recorde", "RECORDE ANTERIOR", new Vector2(495f, 255f),
+                                      new Vector2(320f, 150f), theme.sand);
 
         // Duas linhas de altura: a segunda só aparece quando o recorde cai.
-        var nextRank = UiBuilder.CreateText(card, "ProximoRank", string.Empty, 34, UiBuilder.Sand,
-                                            new Vector2(0.5f, 0.5f), new Vector2(155f, 110f),
-                                            new Vector2(1000f, 112f));
+        var nextRank = ThemedUi.Text(card, "ProximoRank", string.Empty, 30f, theme.sand, new Vector2(0.5f, 0.5f),
+                                     new Vector2(155f, 112f), new Vector2(1000f, 100f), bold: false);
+        nextRank.textWrappingMode = TextWrappingModes.Normal;
 
         // --- escada -----------------------------------------------------
         const float stepWidth = 214f;
@@ -515,44 +578,43 @@ public static class LevelKit
         float firstX = -(stepWidth + stepGap) * 2.5f;
 
         var panels = new Image[6];
-        var letters = new Text[6];
-        var limits = new Text[6];
-        var deltas = new Text[6];
+        var letters = new TMP_Text[6];
+        var limits = new TMP_Text[6];
+        var deltas = new TMP_Text[6];
 
         for (int i = 0; i < 6; i++)
         {
             var step = (Rank)i;
             float x = firstX + i * (stepWidth + stepGap);
 
-            panels[i] = UiBuilder.CreatePanel(card, $"Degrau_{step}", new Color(0.16f, 0.18f, 0.19f, 0.95f),
-                                              new Vector2(0.5f, 0.5f), new Vector2(x, -55f),
-                                              new Vector2(stepWidth, 200f));
+            // A placa é pintada pela EndScreen: cor cheia do rank no degrau
+            // alcançado, apagada nos outros. A pedra cinza do sprite aceita a
+            // cor como tinta.
+            panels[i] = ThemedUi.Plate(card, $"Degrau_{step}", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                       new Vector2(x, -55f), new Vector2(stepWidth, 200f), theme.stone, out var frame);
+            frame.color = theme.metalDark;
 
-            letters[i] = UiBuilder.CreateText(card, $"Letra_{step}", step.ToString(), 70, Ranks.ColorOf(step),
-                                 new Vector2(0.5f, 0.5f), new Vector2(x, 0f),
-                                 new Vector2(stepWidth - 20f, 86f), style: FontStyle.Bold);
-
-            limits[i] = UiBuilder.CreateText(card, $"Limite_{step}", string.Empty, 26, UiBuilder.Ash,
-                                             new Vector2(0.5f, 0.5f), new Vector2(x, -78f),
-                                             new Vector2(stepWidth - 16f, 40f));
-
-            deltas[i] = UiBuilder.CreateText(card, $"Diferenca_{step}", string.Empty, 34, UiBuilder.Ash,
-                                             new Vector2(0.5f, 0.5f), new Vector2(x, -122f),
-                                             new Vector2(stepWidth - 16f, 46f), style: FontStyle.Bold);
+            letters[i] = ThemedUi.Text(card, $"Letra_{step}", step.ToString(), 72f, Ranks.ColorOf(step),
+                                       new Vector2(0.5f, 0.5f), new Vector2(x, 0f), new Vector2(stepWidth - 20f, 86f),
+                                       material: theme.titleMaterial);
+            limits[i] = ThemedUi.Text(card, $"Limite_{step}", string.Empty, 24f, theme.ash, new Vector2(0.5f, 0.5f),
+                                      new Vector2(x, -78f), new Vector2(stepWidth - 24f, 36f), bold: false);
+            deltas[i] = ThemedUi.Text(card, $"Diferenca_{step}", string.Empty, 32f, theme.ash, new Vector2(0.5f, 0.5f),
+                                      new Vector2(x, -122f), new Vector2(stepWidth - 24f, 44f));
         }
 
         // --- registro ---------------------------------------------------
-        UiBuilder.CreateText(card, "RotuloDoRegistro", "SEU REGISTRO NESTA FASE", 28, UiBuilder.Gold,
-                             new Vector2(0.5f, 0.5f), new Vector2(0f, -200f), new Vector2(1380f, 40f),
-                             style: FontStyle.Bold);
-        var record = UiBuilder.CreateText(card, "Registro", string.Empty, 30, UiBuilder.Ash,
-                                          new Vector2(0.5f, 0.5f), new Vector2(0f, -268f),
-                                          new Vector2(1380f, 90f));
+        ThemedUi.Text(card, "RotuloDoRegistro", "SEU REGISTRO NESTA FASE", 26f, theme.gold, new Vector2(0.5f, 0.5f),
+                      new Vector2(0f, -200f), new Vector2(1380f, 36f), spacing: 6f);
+        var record = ThemedUi.Text(card, "Registro", string.Empty, 28f, theme.ash, new Vector2(0.5f, 0.5f),
+                                   new Vector2(0f, -268f), new Vector2(1380f, 90f), bold: false);
+        record.textWrappingMode = TextWrappingModes.Normal;
 
         // --- teclas -----------------------------------------------------
-        summary = UiBuilder.CreateText(card, "Dicas", string.Empty, 30, UiBuilder.Ash,
-                                       new Vector2(0.5f, 0f), new Vector2(0f, 56f),
-                                       new Vector2(1380f, 60f));
+        summary = ThemedUi.Text(card, "Dicas", string.Empty, 26f, theme.sand, new Vector2(0.5f, 0f),
+                                new Vector2(0f, 56f), new Vector2(1380f, 44f), spacing: 2f);
+
+        ThemedUi.Intro(holder, card);
 
         EditorSetupUtil.SetReference(screen, "rankLabel", rank);
         EditorSetupUtil.SetReference(screen, "timeValue", timeValue);

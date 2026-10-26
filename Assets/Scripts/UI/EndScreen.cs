@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -15,21 +16,21 @@ public class EndScreen : MonoBehaviour
 {
     [SerializeField] GameObject deathPanel;
     [SerializeField] GameObject victoryPanel;
-    [SerializeField] Text deathSummary;
-    [SerializeField] Text victorySummary;
-    [SerializeField] Text rankLabel;
-    [SerializeField] Text timeValue;
-    [SerializeField] Text fallsValue;
-    [SerializeField] Text bestValue;
+    [SerializeField] TMP_Text deathSummary;
+    [SerializeField] TMP_Text victorySummary;
+    [SerializeField] TMP_Text rankLabel;
+    [SerializeField] TMP_Text timeValue;
+    [SerializeField] TMP_Text fallsValue;
+    [SerializeField] TMP_Text bestValue;
 
     [Header("Escada de ranks, de S a F")]
     [SerializeField] Image[] ladderPanels;
-    [SerializeField] Text[] ladderLetters;
-    [SerializeField] Text[] ladderLimits;
-    [SerializeField] Text[] ladderDeltas;
+    [SerializeField] TMP_Text[] ladderLetters;
+    [SerializeField] TMP_Text[] ladderLimits;
+    [SerializeField] TMP_Text[] ladderDeltas;
 
-    [SerializeField] Text nextRankLabel;
-    [SerializeField] Text recordLabel;
+    [SerializeField] TMP_Text nextRankLabel;
+    [SerializeField] TMP_Text recordLabel;
 
     [Tooltip("Cena do menu inicial, carregada com Esc.")]
     [SerializeField] string menuScene = "Menu";
@@ -37,6 +38,9 @@ public class EndScreen : MonoBehaviour
     [Tooltip("Fase seguinte. Vazio significa que esta é a última, e aí Espaço " +
              "repete a corrida em vez de avançar.")]
     [SerializeField] string nextLevelScene;
+
+    [Tooltip("Como a dica chama o que vem depois: próxima fase, ou ver resultados na última.")]
+    [SerializeField] string nextLevelLabel = "próxima fase";
 
     bool _showing;
     bool _isVictory;
@@ -63,9 +67,18 @@ public class EndScreen : MonoBehaviour
         if (!_showing) return;
 
         var keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        var pad = Gamepad.current;
 
-        if (keyboard.escapeKey.wasPressedThisFrame)
+        // Teclado e controle lado a lado. Na vitória, Esc ou B vão para o
+        // menu; na morte o B continua, como qualquer outro botão, e o menu
+        // fica no Select - o B é o "voltar" do controle, e apertá-lo por
+        // reflexo na tela de morte não pode tirar ninguém da fase.
+        bool toMenu = Pressed(keyboard?.escapeKey)
+                      || (_isVictory ? Pressed(pad?.buttonEast) : Pressed(pad?.selectButton));
+        bool next = Pressed(keyboard?.spaceKey) || Pressed(keyboard?.enterKey) || Pressed(pad?.buttonSouth);
+        bool retry = Pressed(keyboard?.rKey) || Pressed(pad?.buttonWest);
+
+        if (toMenu)
         {
             Time.timeScale = 1f;
             SceneManager.LoadScene(menuScene);
@@ -77,14 +90,14 @@ public class EndScreen : MonoBehaviour
             // R sempre repete, mesmo havendo fase seguinte: num jogo de tempo,
             // repetir a fase que se acabou de vencer é o gesto mais comum que
             // existe, e não pode depender de voltar ao menu para achá-lo.
-            if (keyboard.rKey.wasPressedThisFrame)
+            if (retry)
             {
                 Time.timeScale = 1f;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
                 return;
             }
 
-            if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)
+            if (next)
             {
                 Time.timeScale = 1f;
                 SceneManager.LoadScene(string.IsNullOrEmpty(nextLevelScene)
@@ -95,8 +108,14 @@ public class EndScreen : MonoBehaviour
             return;
         }
 
-        if (keyboard.anyKey.wasPressedThisFrame) Resume();
+        bool anyPad = pad != null && (Pressed(pad.buttonSouth) || Pressed(pad.buttonEast)
+                                      || Pressed(pad.buttonWest) || Pressed(pad.buttonNorth)
+                                      || Pressed(pad.startButton));
+        if ((keyboard != null && keyboard.anyKey.wasPressedThisFrame) || anyPad) Resume();
     }
+
+    static bool Pressed(UnityEngine.InputSystem.Controls.ButtonControl button) =>
+        button != null && button.wasPressedThisFrame;
 
     /// <summary>Chamada pelo <see cref="LevelRespawn"/> a cada reinício por morte.</summary>
     public void ShowDeath()
@@ -113,7 +132,7 @@ public class EndScreen : MonoBehaviour
             // hélice na fase, o texto tem que valer para todos. Sem placar -
             // o tutorial não tem - fica só o como sair, que é o que importa.
             string count = session != null ? $"morte nº {session.Deaths}\n\n" : string.Empty;
-            deathSummary.text = count + "qualquer tecla para continuar\nEsc para o menu";
+            deathSummary.text = count + "qualquer tecla ou botão para continuar\nEsc ou Select para o menu";
         }
 
         Show(deathPanel, victory: false);
@@ -167,8 +186,8 @@ public class EndScreen : MonoBehaviour
             // quebra linha, uma sequencia de espacos vira um ponto de quebra
             // qualquer e o alinhamento se desfaz.
             victorySummary.text = string.IsNullOrEmpty(nextLevelScene)
-                ? "Espaço ou R para correr de novo   |   Esc para o menu"
-                : "Espaço: próxima fase   |   R: correr de novo   |   Esc: menu";
+                ? "ESPAÇO / A  correr de novo      ESC / B  menu"
+                : $"ESPAÇO / A  {nextLevelLabel}      R / X  correr de novo      ESC / B  menu";
     }
 
     /// <summary>

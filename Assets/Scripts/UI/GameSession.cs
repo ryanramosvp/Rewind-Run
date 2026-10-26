@@ -53,7 +53,7 @@ public class GameSession : MonoBehaviour
         PreviousBest = SaveSystem.Get(LevelId).bestTime;
 
         // Entrar já é progresso: é a fase que o Continuar vai abrir.
-        SaveSystem.EnterLevel(LevelId);
+        SaveSystem.EnterLevel(LevelId, rankSeconds);
     }
 
     void OnDestroy()
@@ -86,20 +86,12 @@ public class GameSession : MonoBehaviour
         _finalTime = Time.time - _startTime;
         _finished = true;
 
-        IsNewRecord = SaveSystem.RecordRun(LevelId, _finalTime, Deaths);
+        IsNewRecord = SaveSystem.RecordRun(LevelId, _finalTime, Deaths, rankSeconds);
     }
 
     public Rank EarnedRank => RankFor(Elapsed);
 
-    public Rank RankFor(float seconds)
-    {
-        for (int i = 0; i < Ranks.Timed && i < rankSeconds.Length; i++)
-        {
-            if (seconds <= rankSeconds[i]) return (Rank)i;
-        }
-
-        return Rank.F;
-    }
+    public Rank RankFor(float seconds) => Ranks.For(seconds, rankSeconds);
 
     /// <summary>
     /// Tempo limite de um rank. O F não tem limite próprio e devolve o do D,

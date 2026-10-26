@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8ebbb73e58ef504abfd50d8af3da7a9, type: 3}
+  m_Name: RewindRunTheme
+  m_EditorClassIdentifier: Assembly-CSharp::UiTheme
+  basalt: {r: 0.086, g: 0.063, b: 0.055, a: 1}
+  stone: {r: 0.2, g: 0.15, b: 0.13, a: 1}
+  stoneLit: {r: 0.31, g: 0.21, b: 0.16, a: 1}
+  metal: {r: 0.45, g: 0.42, b: 0.4, a: 1}
+  metalDark: {r: 0.26, g: 0.24, b: 0.23, a: 1}
+  ember: {r: 0.953, g: 0.42, b: 0.133, a: 1}
+  molten: {r: 1, g: 0.64, b: 0.22, a: 1}
+  gold: {r: 0.93, g: 0.71, b: 0.33, a: 1}
+  danger: {r: 0.9, g: 0.27, b: 0.2, a: 1}
+  sand: {r: 0.95, g: 0.87, b: 0.74, a: 1}
+  ash: {r: 0.8, g: 0.78, b: 0.75, a: 1}
+  highlightText: {r: 1, g: 0.96, b: 0.86, a: 1}
+  font: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  titleMaterial: {fileID: 2100000, guid: e2d5334e0ee3a7f48aae133d4c8c67d4, type: 2}
+  labelMaterial: {fileID: 2100000, guid: 53f15ef2e05fe094ab7a6492dd3e0553, type: 2}
+  stonePanel: {fileID: 21300000, guid: fca821068c042254ba2963682533655a, type: 3}
+  metalFrame: {fileID: 21300000, guid: 99055e5a160127b4aae998ea192bf418, type: 3}
+  glow: {fileID: 21300000, guid: f18e885c59ad0034b858f1d0bffe6dab, type: 3}
+  shade: {fileID: 21300000, guid: 5767f53ddeffcb046a16bd69058490d3, type: 3}
+  rewindIcon: {fileID: 21300000, guid: fbbfed2219e056541a1674e5f1508571, type: 3}
+  diamond: {fileID: 21300000, guid: 785721e7eee50c1459352f47dfb8ae66, type: 3}
+  selectedScale: 1.04
+  pressedScale: 0.96
+  transitionSpeed: 14

@@ -22,6 +22,23 @@ public static class Ranks
     /// <summary>Quantos ranks têm tempo limite. O F não tem: é tudo acima do D.</summary>
     public const int Timed = 5;
 
+    /// <summary>A tabela tem um limite para cada rank com tempo (S a D)?</summary>
+    public static bool IsTable(float[] limits) => limits != null && limits.Length >= Timed;
+
+    /// <summary>
+    /// O rank de um tempo numa tabela de limites (S, A, B, C, D, crescendo).
+    /// Acima do último limite, ou sem tabela, é F.
+    /// </summary>
+    public static Rank For(float seconds, float[] limits)
+    {
+        for (int i = 0; limits != null && i < Timed && i < limits.Length; i++)
+        {
+            if (seconds <= limits[i]) return (Rank)i;
+        }
+
+        return Rank.F;
+    }
+
     /// <summary>
     /// Cor de cada rank.
     ///

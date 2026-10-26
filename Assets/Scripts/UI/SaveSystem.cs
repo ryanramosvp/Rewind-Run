@@ -32,6 +32,21 @@ public class LevelRecord
 
     /// <summary>As últimas corridas, da mais nova para a mais antiga.</summary>
     public List<RunEntry> recentRuns = new List<RunEntry>();
+
+    /// <summary>
+    /// Limites de S a D da fase, copiados da cena na última vez que ela foi
+    /// concluída. É o que deixa o menu e a tela de resultados darem nota sem
+    /// abrir a cena. Guarda-se a tabela, e não o rank: recalibrada a fase,
+    /// a próxima conclusão traz a tabela nova e as notas acompanham.
+    /// </summary>
+    public float[] rankLimits = new float[0];
+
+    /// <summary>A nota de um tempo nesta fase, ou nulo sem tabela ou sem tempo.</summary>
+    public Rank? RankOf(float seconds) =>
+        seconds > 0f && Ranks.IsTable(rankLimits) ? Ranks.For(seconds, rankLimits) : (Rank?)null;
+
+    /// <summary>A corrida concluída mais recente, ou nula.</summary>
+    public RunEntry LastRun => recentRuns != null && recentRuns.Count > 0 ? recentRuns[0] : null;
 }
 
 /// <summary>
@@ -158,10 +173,12 @@ public static class SaveSystem
     /// do recorde andam junto com ele: uma corrida mais lenta conta nas
     /// estatísticas, mas não mexe no par tempo-mortes do melhor resultado.
     /// </summary>
-    public static bool RecordRun(string levelId, float time, int deaths)
+    public static bool RecordRun(string levelId, float time, int deaths, float[] rankLimits = null)
     {
         var record = Get(levelId);
         MarkCompleted(levelId);
+
+        if (Ranks.IsTable(rankLimits)) record.rankLimits = (float[])rankLimits.Clone();
 
         if (!IsValidTime(time))
         {
@@ -239,8 +256,11 @@ public static class SaveSystem
     ///
     /// Rejogar uma fase antiga também a torna a atual, mas não tira nada:
     /// desbloqueios, conclusões e recordes ficam como estavam.
+    ///
+    /// A tabela de ranks vem junto: assim um recorde feito antes de o save
+    /// guardar tabelas ganha nota assim que a fase é aberta de novo.
     /// </summary>
-    public static void EnterLevel(string levelId)
+    public static void EnterLevel(string levelId, float[] rankLimits = null)
     {
         if (!Campaign.Contains(levelId)) return;
 
@@ -248,6 +268,14 @@ public static class SaveSystem
         var progress = _data.progress;
 
         bool changed = progress.currentLevel != levelId || !progress.started;
+
+        var record = Get(levelId);
+        if (Ranks.IsTable(rankLimits) && !SameTable(record.rankLimits, rankLimits))
+        {
+            record.rankLimits = (float[])rankLimits.Clone();
+            changed = true;
+        }
+
         progress.currentLevel = levelId;
         progress.started = true;
 
@@ -385,6 +413,7 @@ public static class SaveSystem
         foreach (var record in data.levels)
         {
             if (record.recentRuns == null) record.recentRuns = new List<RunEntry>();
+            if (record.rankLimits == null) record.rankLimits = new float[0];
             record.recentRuns.RemoveAll(run => run == null || !IsValidTime(run.time));
 
             if (!IsValidTime(record.bestTime))
@@ -472,6 +501,17 @@ public static class SaveSystem
         seconds > 0f && !float.IsNaN(seconds) && !float.IsInfinity(seconds);
 
     static string LegacyKey(string levelId) => $"rr.best.{levelId}";
+
+    static bool SameTable(float[] a, float[] b)
+    {
+        if (a == null || b == null || a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (!Mathf.Approximately(a[i], b[i])) return false;
+        }
+
+        return true;
+    }
 
     static bool AddOnce(List<string> list, string id)
     {

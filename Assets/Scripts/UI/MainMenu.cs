@@ -1,4 +1,6 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -34,39 +36,38 @@ public class MainMenu : MonoBehaviour
     [SerializeField] Button firstButton;
     [SerializeField] Button backButton;
     [SerializeField] Button settingsBackButton;
-    [SerializeField] Text timerToggleLabel;
-    [SerializeField] Text speedToggleLabel;
+    [SerializeField] TMP_Text timerToggleLabel;
+    [SerializeField] TMP_Text speedToggleLabel;
     [SerializeField] Image timerPill;
     [SerializeField] Image speedPill;
     [SerializeField] Slider volumeSlider;
-    [SerializeField] Text volumeLabel;
+    [SerializeField] TMP_Text volumeLabel;
 
     [Header("Campanha")]
     [Tooltip("Desligado enquanto não há campanha em andamento.")]
     [SerializeField] Button continueButton;
     [Tooltip("Nome da fase que o Continuar abre, embaixo do botão.")]
-    [SerializeField] Text continueDetail;
+    [SerializeField] TMP_Text continueDetail;
     [SerializeField] Button newGameButton;
 
     [Header("Seleção de fases, na ordem da Campaign")]
     [SerializeField] GameObject levelSelectPanel;
     [SerializeField] Button[] levelButtons;
-    [SerializeField] Text[] levelTitles;
-    [SerializeField] Text[] levelDetails;
+    [SerializeField] TMP_Text[] levelTitles;
+    [SerializeField] TMP_Text[] levelDetails;
+    [Tooltip("Letra da nota do recorde, na cor do rank.")]
+    [SerializeField] TMP_Text[] levelRanks;
     [SerializeField] Button levelSelectBackButton;
 
     [Header("Confirmação")]
     [SerializeField] GameObject confirmPanel;
-    [SerializeField] Text confirmTitle;
-    [SerializeField] Text confirmMessage;
+    [SerializeField] TMP_Text confirmTitle;
+    [SerializeField] TMP_Text confirmMessage;
     [Tooltip("Recebe o foco ao abrir: Enter sem ler não pode apagar nada.")]
     [SerializeField] Button confirmCancelButton;
 
     static readonly Color OnColor = new Color(0f, 0.518f, 0.329f);
     static readonly Color OffColor = new Color(0.29f, 0.32f, 0.33f);
-    static readonly Color LockedColor = new Color(0.45f, 0.47f, 0.48f);
-    static readonly Color Sand = new Color(0.855f, 0.682f, 0.490f);
-    static readonly Color Ash = new Color(0.831f, 0.859f, 0.871f);
 
     enum Pending { None, NewGame, DeleteAll }
 
@@ -99,16 +100,58 @@ public class MainMenu : MonoBehaviour
         if (!open) return;
 
         var keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        var gamepad = Gamepad.current;
 
         // Esc sempre fecha, mesmo que o botão não esteja visível por qualquer
         // motivo. É a rede de segurança contra ficar preso numa tela. Na
-        // confirmação ele vale como Cancelar.
-        if (keyboard.escapeKey.wasPressedThisFrame || keyboard.backspaceKey.wasPressedThisFrame)
+        // confirmação ele vale como Cancelar. No controle, o B faz o mesmo.
+        bool back = (keyboard != null && (keyboard.escapeKey.wasPressedThisFrame
+                                          || keyboard.backspaceKey.wasPressedThisFrame))
+                    || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
+
+        if (back)
         {
             if (confirming) CancelConfirm();
+            else if (controlsPanel != null && controlsPanel.activeSelf) OpenSettings();
             else CloseControls();
         }
+    }
+
+    /// <summary>
+    /// Sempre há uma opção escolhida. Se a seleção se perde - um clique no
+    /// fundo, um botão que sumiu, o primeiro quadro em que o EventSystem ainda
+    /// não aceitou a seleção do Start -, ela volta para a opção padrão da tela
+    /// aberta. Sem isso o teclado e o controle ficavam sem ter o que navegar,
+    /// e nada aparecia aceso.
+    /// </summary>
+    void LateUpdate()
+    {
+        var system = EventSystem.current;
+        if (system == null) return;
+
+        var current = system.currentSelectedGameObject;
+        if (current != null && current.activeInHierarchy) return;
+
+        var fallback = DefaultSelection();
+        if (fallback != null) fallback.Select();
+    }
+
+    /// <summary>A opção que recebe o foco em cada tela.</summary>
+    Selectable DefaultSelection()
+    {
+        if (confirmPanel != null && confirmPanel.activeSelf) return confirmCancelButton;
+        if (tutorialPanel != null && tutorialPanel.activeSelf) return tutorialYesButton;
+        if (controlsPanel != null && controlsPanel.activeSelf) return backButton;
+        if (settingsPanel != null && settingsPanel.activeSelf) return settingsBackButton;
+
+        if (levelSelectPanel != null && levelSelectPanel.activeSelf)
+        {
+            int current = Campaign.IndexOf(SaveSystem.CurrentLevel);
+            return TryGet(levelButtons, current, out var level) && level.interactable ? level : levelSelectBackButton;
+        }
+
+        if (continueButton != null && continueButton.interactable) return continueButton;
+        return newGameButton != null ? newGameButton : firstButton;
     }
 
     // ------------------------------------------------------------------
@@ -251,12 +294,12 @@ public class MainMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Escreve cada linha da seleção: nome, recorde e mortes da corrida do
-    /// recorde. Bloqueada fica apagada, com o aviso no lugar do recorde, e não
-    /// aceita clique.
+    /// Escreve cada linha da seleção: nome, recorde, mortes da corrida do
+    /// recorde e a nota dele. Bloqueada fica apagada (o botão desligado cuida
+    /// disso), com o aviso no lugar do recorde, e não aceita clique.
     ///
-    /// Sem rank: a tabela de ranks de cada fase mora na cena dela, e o menu
-    /// não a tem. O save guarda o tempo, que é o que não muda.
+    /// A nota vem da tabela de ranks que o save copia da fase ao jogá-la;
+    /// fase nunca aberta desde então fica sem letra.
     /// </summary>
     void RefreshLevelSelect()
     {
@@ -264,13 +307,16 @@ public class MainMenu : MonoBehaviour
         {
             var level = Campaign.Levels[i];
             bool unlocked = SaveSystem.IsUnlocked(level.Id);
+            var record = SaveSystem.Get(level.Id);
 
             if (TryGet(levelButtons, i, out var button)) button.interactable = unlocked;
+            if (TryGet(levelTitles, i, out var title)) title.text = $"{i + 1}. {level.Title.ToUpper()}";
 
-            if (TryGet(levelTitles, i, out var title))
+            if (TryGet(levelRanks, i, out var letter))
             {
-                title.text = $"{i + 1}. {level.Title.ToUpper()}";
-                title.color = unlocked ? Sand : LockedColor;
+                var rank = unlocked ? record.RankOf(record.bestTime) : null;
+                letter.text = rank.HasValue ? rank.Value.ToString() : "";
+                if (rank.HasValue) letter.color = Ranks.ColorOf(rank.Value);
             }
 
             if (!TryGet(levelDetails, i, out var detail)) continue;
@@ -278,21 +324,15 @@ public class MainMenu : MonoBehaviour
             if (!unlocked)
             {
                 detail.text = "BLOQUEADA";
-                detail.color = LockedColor;
-                continue;
             }
-
-            var record = SaveSystem.Get(level.Id);
-            detail.color = Ash;
-
-            if (record.bestTime > 0f)
+            else if (record.bestTime > 0f)
             {
                 string deaths = record.bestRunDeaths == 1 ? "1 morte" : $"{record.bestRunDeaths} mortes";
-                detail.text = $"Recorde {GameSession.FormatTime(record.bestTime)}  ·  {deaths}";
+                detail.text = $"RECORDE {GameSession.FormatTime(record.bestTime)}  ·  {deaths}";
             }
             else
             {
-                detail.text = "Sem recorde ainda";
+                detail.text = "SEM RECORDE AINDA";
             }
         }
     }
@@ -340,6 +380,7 @@ public class MainMenu : MonoBehaviour
 
     public void SkipTutorial() => SceneManager.LoadScene(levelScene);
 
+    /// <summary>Aberta de dentro das configurações; o Voltar dela volta para lá.</summary>
     public void OpenControls()
     {
         HidePanels();
@@ -360,9 +401,8 @@ public class MainMenu : MonoBehaviour
 
         // Com campanha em andamento o foco vai para o Continuar; sem ela, ele
         // está desligado e o foco cai no Novo jogo.
-        if (continueButton != null && continueButton.interactable) continueButton.Select();
-        else if (newGameButton != null) newGameButton.Select();
-        else if (firstButton != null) firstButton.Select();
+        var focus = DefaultSelection();
+        if (focus != null) focus.Select();
     }
 
     public void OpenSettings()
@@ -425,7 +465,7 @@ public class MainMenu : MonoBehaviour
         Apply(speedToggleLabel, speedPill, GameSettings.ShowSpeed);
     }
 
-    static void Apply(Text label, Image pill, bool on)
+    static void Apply(TMP_Text label, Image pill, bool on)
     {
         if (label != null) label.text = on ? "LIGADO" : "DESLIGADO";
         if (pill != null) pill.color = on ? OnColor : OffColor;

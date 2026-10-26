@@ -9,11 +9,14 @@ using UnityEngine.UI;
 /// tela. Assim o <see cref="UiBuilder"/> põe este componente ao criar qualquer
 /// botão, e nenhuma tela futura nasce muda por esquecimento.
 ///
+/// Vale para qualquer controle (botão, barra); o som de confirmar só existe
+/// onde há clique, nos botões.
+///
 /// Ouve as duas formas de "passar por cima" porque o jogo tem as duas: o mouse
 /// dispara OnPointerEnter, e navegar pelo teclado dispara OnSelect. Só uma
 /// delas deixaria metade dos jogadores sem retorno.
 /// </summary>
-[RequireComponent(typeof(Button))]
+[RequireComponent(typeof(Selectable))]
 public class ButtonSound : MonoBehaviour, IPointerEnterHandler, ISelectHandler
 {
     void Awake()

@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -30,13 +31,13 @@ public class TutorialGuide : MonoBehaviour
         (Goal.SaltoDeParede, "Pule contra a parede do vulcão e, encostada nela, " +
                              "aperte ESPAÇO: é o salto de parede."),
         (Goal.VoltarNoTempo, "Segure o BOTÃO DIREITO do mouse para voltar no tempo. " +
-                             "A barra embaixo mostra quanto ainda resta."),
+                             "O indicador no canto de baixo mostra quanto ainda resta."),
         (Goal.ChegarAoTopo, "Agora suba pela escada em espiral até a bandeira no topo do vulcão."),
     };
 
     [SerializeField] PlayerController player;
-    [SerializeField] Text titleLabel;
-    [SerializeField] Text bodyLabel;
+    [SerializeField] TMP_Text titleLabel;
+    [SerializeField] TMP_Text bodyLabel;
 
     [Tooltip("Fase carregada ao terminar o tutorial.")]
     [SerializeField] string nextScene = "Level_CorridaDeLava";

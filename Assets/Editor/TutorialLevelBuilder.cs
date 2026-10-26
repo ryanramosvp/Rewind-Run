@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -128,18 +129,19 @@ public static class TutorialLevelBuilder
     /// </summary>
     static void CreateGuide(GameObject player)
     {
+        var theme = ThemedUi.Theme;
         var canvas = UiBuilder.CreateCanvas("Tutorial", sortOrder: 8);
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
         var guide = canvas.gameObject.AddComponent<TutorialGuide>();
 
-        var card = UiBuilder.CreateCard(canvas.transform, "Cartao", "TUTORIAL", UiBuilder.Swatch.Ouro,
-                                        new Vector2(0.5f, 1f), new Vector2(0f, -150f),
-                                        new Vector2(1160f, 250f), titleSize: 44);
+        var card = ThemedUi.Card(canvas.transform, "Cartao", "TUTORIAL", Vector2.zero, new Vector2(1160f, 250f),
+                                 out var title);
+        card.anchorMin = card.anchorMax = new Vector2(0.5f, 1f);
+        card.anchoredPosition = new Vector2(0f, -150f);
 
-        var title = card.Find("Titulo") != null ? card.Find("Titulo").GetComponent<Text>() : null;
-
-        var body = UiBuilder.CreateText(card, "Instrucao", string.Empty, 40, UiBuilder.Sand,
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, -42f),
-                                        new Vector2(1080f, 140f));
+        var body = ThemedUi.Text(card, "Instrucao", string.Empty, 36f, theme.sand, new Vector2(0.5f, 0.5f),
+                                 new Vector2(0f, -48f), new Vector2(1060f, 120f), bold: false);
+        body.textWrappingMode = TextWrappingModes.Normal;
 
         EditorSetupUtil.SetReference(guide, "titleLabel", title);
         EditorSetupUtil.SetReference(guide, "bodyLabel", body);
