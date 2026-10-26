@@ -178,12 +178,12 @@ public static class MenuSceneBuilder
                                          new Vector2(420f, -150f), new Vector2(600f, 560f));
 
         var size = new Vector2(560f, 92f);
-        var resume = ThemedUi.MenuButton(group, "CONTINUAR", new Vector2(0f, 212f), size,
-                                         out var resumeSlot, out var resumeDetail, withDetail: true);
-        var levels = ThemedUi.MenuButton(group, "SELECIONAR FASE", new Vector2(0f, 106f), size,
-                                         out var levelsSlot, out _);
-        var newGame = ThemedUi.MenuButton(group, "NOVO JOGO", new Vector2(0f, 0f), size,
+        var newGame = ThemedUi.MenuButton(group, "NOVO JOGO", new Vector2(0f, 212f), size,
                                           out var newGameSlot, out _);
+        var resume = ThemedUi.MenuButton(group, "CONTINUAR", new Vector2(0f, 106f), size,
+                                         out var resumeSlot, out var resumeDetail, withDetail: true);
+        var levels = ThemedUi.MenuButton(group, "SELECIONAR FASE", new Vector2(0f, 0f), size,
+                                         out var levelsSlot, out _);
         var settings = ThemedUi.MenuButton(group, "CONFIGURAÇÕES", new Vector2(0f, -106f), size,
                                            out var settingsSlot, out _);
         var quit = ThemedUi.MenuButton(group, "SAIR", new Vector2(0f, -212f), size,
@@ -203,7 +203,7 @@ public static class MenuSceneBuilder
 
         var buttonsIntro = group.gameObject.AddComponent<UiIntroSequence>();
         EditorSetupUtil.SetReferences(buttonsIntro, "items",
-                                      new Object[] { resumeSlot, levelsSlot, newGameSlot, settingsSlot, quitSlot });
+                                      new Object[] { newGameSlot, resumeSlot, levelsSlot, settingsSlot, quitSlot });
         LevelKit.SetFloat(buttonsIntro, "startDelay", 0.15f);
 
         ThemedUi.Text(root, "Dica", "SETAS / ANALÓGICO  navegar      ENTER / A  confirmar      ESC / B  voltar",

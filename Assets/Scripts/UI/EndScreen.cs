@@ -2,7 +2,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 /// <summary>
 /// Telas de morte e de vitória.
@@ -23,14 +22,8 @@ public class EndScreen : MonoBehaviour
     [SerializeField] TMP_Text fallsValue;
     [SerializeField] TMP_Text bestValue;
 
-    [Header("Escada de ranks, de S a F")]
-    [SerializeField] Image[] ladderPanels;
-    [SerializeField] TMP_Text[] ladderLetters;
-    [SerializeField] TMP_Text[] ladderLimits;
-    [SerializeField] TMP_Text[] ladderDeltas;
-
+    [Tooltip("Recorde novo, se houver, e quanto faltou para o rank de cima.")]
     [SerializeField] TMP_Text nextRankLabel;
-    [SerializeField] TMP_Text recordLabel;
 
     [Tooltip("Cena do menu inicial, carregada com Esc.")]
     [SerializeField] string menuScene = "Menu";
@@ -151,11 +144,14 @@ public class EndScreen : MonoBehaviour
     }
 
     /// <summary>
-    /// Monta o resumo da corrida.
+    /// Monta o resumo da corrida - só o essencial, para ler de relance entre
+    /// uma fase e outra.
     ///
-    /// O rank vem primeiro e grande porque é o veredito; tempo e recorde são a
-    /// justificativa. Quando o recorde cai, ele é dito explicitamente - um
-    /// número menor que o anterior passa despercebido se ninguém apontar.
+    /// O rank vem primeiro e grande porque é o veredito; tempo, mortes e
+    /// recorde anterior são a justificativa. Embaixo, uma linha só: o recorde
+    /// novo, quando cai, e quanto faltou para o rank de cima. A tabela inteira
+    /// de ranks e o histórico da fase ficaram de fora: eram informação de
+    /// estudo, e a tela entre fases é de passagem.
     /// </summary>
     void WriteVictorySummary(GameSession session)
     {
@@ -167,9 +163,7 @@ public class EndScreen : MonoBehaviour
             rankLabel.color = Ranks.ColorOf(rank);
         }
 
-        WriteLadder(session, rank);
         WriteNextRank(session, rank);
-        WriteRecord(session);
 
         if (timeValue != null) timeValue.text = GameSession.FormatTime(session.Elapsed);
         if (fallsValue != null) fallsValue.text = session.Deaths.ToString();
@@ -188,68 +182,6 @@ public class EndScreen : MonoBehaviour
             victorySummary.text = string.IsNullOrEmpty(nextLevelScene)
                 ? "ESPAÇO / A  correr de novo      ESC / B  menu"
                 : $"ESPAÇO / A  {nextLevelLabel}      R / X  correr de novo      ESC / B  menu";
-    }
-
-    /// <summary>
-    /// A escada inteira, e não só o rank alcançado.
-    ///
-    /// Cada degrau mostra o limite e a distância do tempo feito até ele. Com a
-    /// escada toda à vista, quem tirou B vê no mesmo relance que o A estava a
-    /// 1,8 s e o S a 6 s - e é isso que faz correr de novo, não a letra.
-    /// </summary>
-    void WriteLadder(GameSession session, Rank earned)
-    {
-        float time = session.Elapsed;
-        var dim = new Color(0.16f, 0.18f, 0.19f, 0.95f);
-        var ink = new Color(0.075f, 0.098f, 0.106f);
-        var ash = new Color(0.831f, 0.859f, 0.871f);
-
-        for (int i = 0; i <= (int)Rank.F; i++)
-        {
-            var rank = (Rank)i;
-            bool isTimed = i < Ranks.Timed;
-            float limit = session.LimitOf(rank);
-
-            // O degrau alcançado fica com a cor cheia do rank e texto escuro,
-            // como um botão selecionado; os outros ficam apagados. Com a cor
-            // só translúcida, a letra B azul sumia sobre o próprio fundo azul.
-            bool lit = rank == earned;
-
-            if (TryGet(ladderPanels, i, out var panel))
-                panel.color = lit ? Ranks.ColorOf(rank) : dim;
-
-            if (TryGet(ladderLetters, i, out var letter))
-                letter.color = lit ? ink : Ranks.ColorOf(rank);
-
-            if (TryGet(ladderLimits, i, out var limitLabel))
-            {
-                limitLabel.text = isTimed
-                    ? "até " + GameSession.FormatTime(limit)
-                    : "acima de " + GameSession.FormatTime(limit);
-                limitLabel.color = lit ? ink : ash;
-            }
-
-            if (!TryGet(ladderDeltas, i, out var deltaLabel)) continue;
-
-            if (!isTimed)
-            {
-                deltaLabel.text = lit ? "aqui" : "--";
-                deltaLabel.color = lit ? ink : new Color(0.6f, 0.62f, 0.64f);
-                continue;
-            }
-
-            float delta = time - limit;
-            deltaLabel.text = GameSession.FormatDelta(delta);
-            deltaLabel.color = lit ? ink
-                             : delta <= 0f ? new Color(0.45f, 0.88f, 0.55f)
-                             : new Color(1f, 0.45f, 0.4f);
-        }
-    }
-
-    static bool TryGet<T>(T[] items, int index, out T item) where T : Object
-    {
-        item = items != null && index < items.Length ? items[index] : null;
-        return item != null;
     }
 
     /// <summary>
@@ -287,34 +219,6 @@ public class EndScreen : MonoBehaviour
     }
 
     static string Seconds(float value) => value.ToString("0.00").Replace('.', ',');
-
-    /// <summary>
-    /// O que o save guarda desta fase: melhor tempo, quantas vezes foi
-    /// concluída e as últimas corridas, para ver a evolução de uma vez.
-    /// </summary>
-    void WriteRecord(GameSession session)
-    {
-        if (recordLabel == null) return;
-
-        var record = session.Record;
-        var line = new System.Text.StringBuilder();
-
-        line.Append($"Melhor: {GameSession.FormatTime(record.bestTime)} (rank {session.RankFor(record.bestTime)})");
-        line.Append($"   ·   {record.completions} {(record.completions == 1 ? "corrida concluída" : "corridas concluídas")}");
-        line.Append($"   ·   {record.totalDeaths} mortes no total");
-
-        if (record.recentRuns.Count > 1)
-        {
-            line.Append("\nÚltimas: ");
-            for (int i = 0; i < record.recentRuns.Count; i++)
-            {
-                if (i > 0) line.Append("   ");
-                line.Append(GameSession.FormatTime(record.recentRuns[i].time));
-            }
-        }
-
-        recordLabel.text = line.ToString();
-    }
 
     void Show(GameObject panel, bool victory)
     {

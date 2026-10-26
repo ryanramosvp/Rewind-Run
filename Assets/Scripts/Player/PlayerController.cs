@@ -59,6 +59,10 @@ public class PlayerController : MonoBehaviour
     [Tooltip("A partir de quantos graus entre o embalo e o direcional o ar freia em vez de girar.")]
     [SerializeField, Range(90f, 180f)] float airReverseAngle = 120f;
 
+    [Tooltip("Depois que a câmera fixa troca de ângulo, a que velocidade (graus/s) o " +
+             "\"para frente\" do direcional alcança o ângulo novo, mesmo com a tecla segurada.")]
+    [SerializeField, Min(1f)] float basisCatchUpSpeed = 90f;
+
     [SerializeField, Min(0f)] float turnSpeed = 900f;
 
     [Tooltip("Giro do modelo no ar, em graus por segundo. No chão ela vira na hora; no ar, " +
@@ -974,30 +978,44 @@ public class PlayerController : MonoBehaviour
     ///
     /// O movimento é relativo à câmera, então mudar o yaw no meio de uma
     /// corrida redefine o que "para frente" significa e a bruxa vira sozinha.
-    /// A base fica congelada desde o início da transição até o jogador soltar a
-    /// direção - aí ela adota o ângulo novo, que é quando ele está olhando e
-    /// decidindo para onde ir.
+    /// A base fica congelada enquanto a câmera gira, se a direção está
+    /// segurada.
     ///
-    /// Soltar não é obrigatório para jogar: a base só trava em transição, e
-    /// segurar em frente continua indo em frente.
+    /// Terminado o giro, a base alcança o ângulo novo aos poucos
+    /// (<see cref="basisCatchUpSpeed"/>), mesmo com a tecla ainda segurada.
+    /// Antes ela só se soltava quando o jogador largava a direção - e quem
+    /// segurava W pela rampa inteira, com a câmera virando a cada curva, via a
+    /// bruxa escorregar para o lado da tela, porque "frente" tinha ficado no
+    /// ângulo da primeira zona. Soltar a direção continua adotando o ângulo
+    /// novo na hora.
     /// </summary>
     void UpdateMovementBasis()
     {
         float cameraYaw = cameraTransform != null ? cameraTransform.eulerAngles.y : 0f;
         bool holdingDirection = input.Move.sqrMagnitude > 0.01f;
 
-        if (_basisLocked)
+        if (!holdingDirection)
         {
-            if (holdingDirection) return;
             _basisLocked = false;
+            _movementYaw = cameraYaw;
+            return;
         }
-        else if (holdingDirection && IsCameraReframing())
+
+        if (IsCameraReframing())
         {
+            // Começou a girar com a direção já segurada: segura a base.
             _basisLocked = true;
             return;
         }
 
-        _movementYaw = cameraYaw;
+        if (!_basisLocked)
+        {
+            _movementYaw = cameraYaw;
+            return;
+        }
+
+        _movementYaw = Mathf.MoveTowardsAngle(_movementYaw, cameraYaw, basisCatchUpSpeed * Time.deltaTime);
+        if (Mathf.Abs(Mathf.DeltaAngle(_movementYaw, cameraYaw)) < 0.01f) _basisLocked = false;
     }
 
     bool IsCameraReframing()

@@ -535,84 +535,41 @@ public static class LevelKit
     }
 
     /// <summary>
-    /// Tela de vitória, em quatro faixas de cima para baixo: o veredito (nota
-    /// e os três números), a escada de ranks, o registro do save e as teclas.
-    ///
-    /// A escada é horizontal, de S a F, porque é uma régua: lida da esquerda
-    /// para a direita, o degrau aceso diz onde se está e os vizinhos dizem
-    /// quanto falta e quanto sobrou, sem precisar ler uma tabela.
+    /// Tela de vitória: a nota grande à esquerda, tempo, mortes e recorde
+    /// anterior à direita, uma linha com o recorde novo e o próximo rank, e as
+    /// teclas no pé. Só isso - é a tela de passagem entre uma fase e outra.
     /// </summary>
     public static GameObject BuildVictory(Transform parent, EndScreen screen, out TMP_Text summary)
     {
         var theme = ThemedUi.Theme;
         var holder = UiBuilder.CreateStretched(parent, "TelaDeVitoria");
-        ThemedUi.Backdrop(holder, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.9f));
+        ThemedUi.Backdrop(holder, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.86f));
 
-        // 1500 x 920 numa referência de 1920 x 1080: sobra 80 px em cima e
-        // embaixo, e a escada de seis degraus cabe sem espremer os tempos.
-        var card = ThemedUi.Card(holder, "Cartao", "CHEGOU", Vector2.zero, new Vector2(1500f, 920f), out _);
+        var card = ThemedUi.Card(holder, "Cartao", "CHEGOU", Vector2.zero, new Vector2(1200f, 600f), out _);
 
         // --- veredito ---------------------------------------------------
         var rankPlate = ThemedUi.Plate(card, "FundoDaNota", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                       new Vector2(-545f, 205f), new Vector2(300f, 280f), theme.stone, out var rankFrame);
+                                       new Vector2(-410f, 30f), new Vector2(280f, 280f), theme.stone, out var rankFrame);
         rankFrame.color = theme.gold;
         ThemedUi.Text(rankPlate.transform, "Rotulo", "NOTA", 26f, theme.ash, new Vector2(0.5f, 1f),
-                      new Vector2(0f, -36f), new Vector2(240f, 34f), spacing: 10f);
-        var rank = ThemedUi.Text(rankPlate.transform, "Nota", "-", 190f, theme.gold, new Vector2(0.5f, 0.5f),
-                                 new Vector2(0f, -22f), new Vector2(260f, 210f), material: theme.titleMaterial);
+                      new Vector2(0f, -36f), new Vector2(220f, 34f), spacing: 10f);
+        var rank = ThemedUi.Text(rankPlate.transform, "Nota", "-", 180f, theme.gold, new Vector2(0.5f, 0.5f),
+                                 new Vector2(0f, -22f), new Vector2(240f, 200f), material: theme.titleMaterial);
 
         // Três blocos lado a lado, para comparar de relance.
-        var timeValue = ThemedUi.Stat(card, "Tempo", "TEMPO", new Vector2(-185f, 255f), new Vector2(320f, 150f), theme.sand);
-        var fallsValue = ThemedUi.Stat(card, "Mortes", "MORTES", new Vector2(155f, 255f), new Vector2(320f, 150f), theme.sand);
-        var bestValue = ThemedUi.Stat(card, "Recorde", "RECORDE ANTERIOR", new Vector2(495f, 255f),
-                                      new Vector2(320f, 150f), theme.sand);
+        var timeValue = ThemedUi.Stat(card, "Tempo", "TEMPO", new Vector2(-110f, 95f), new Vector2(260f, 150f), theme.sand);
+        var fallsValue = ThemedUi.Stat(card, "Mortes", "MORTES", new Vector2(165f, 95f), new Vector2(260f, 150f), theme.sand);
+        var bestValue = ThemedUi.Stat(card, "Recorde", "RECORDE ANTERIOR", new Vector2(440f, 95f),
+                                      new Vector2(260f, 150f), theme.sand);
 
-        // Duas linhas de altura: a segunda só aparece quando o recorde cai.
+        // Até duas linhas: a de cima só aparece quando o recorde cai.
         var nextRank = ThemedUi.Text(card, "ProximoRank", string.Empty, 30f, theme.sand, new Vector2(0.5f, 0.5f),
-                                     new Vector2(155f, 112f), new Vector2(1000f, 100f), bold: false);
+                                     new Vector2(165f, -50f), new Vector2(820f, 90f), bold: false);
         nextRank.textWrappingMode = TextWrappingModes.Normal;
-
-        // --- escada -----------------------------------------------------
-        const float stepWidth = 214f;
-        const float stepGap = 24f;
-        float firstX = -(stepWidth + stepGap) * 2.5f;
-
-        var panels = new Image[6];
-        var letters = new TMP_Text[6];
-        var limits = new TMP_Text[6];
-        var deltas = new TMP_Text[6];
-
-        for (int i = 0; i < 6; i++)
-        {
-            var step = (Rank)i;
-            float x = firstX + i * (stepWidth + stepGap);
-
-            // A placa é pintada pela EndScreen: cor cheia do rank no degrau
-            // alcançado, apagada nos outros. A pedra cinza do sprite aceita a
-            // cor como tinta.
-            panels[i] = ThemedUi.Plate(card, $"Degrau_{step}", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                       new Vector2(x, -55f), new Vector2(stepWidth, 200f), theme.stone, out var frame);
-            frame.color = theme.metalDark;
-
-            letters[i] = ThemedUi.Text(card, $"Letra_{step}", step.ToString(), 72f, Ranks.ColorOf(step),
-                                       new Vector2(0.5f, 0.5f), new Vector2(x, 0f), new Vector2(stepWidth - 20f, 86f),
-                                       material: theme.titleMaterial);
-            limits[i] = ThemedUi.Text(card, $"Limite_{step}", string.Empty, 24f, theme.ash, new Vector2(0.5f, 0.5f),
-                                      new Vector2(x, -78f), new Vector2(stepWidth - 24f, 36f), bold: false);
-            deltas[i] = ThemedUi.Text(card, $"Diferenca_{step}", string.Empty, 32f, theme.ash, new Vector2(0.5f, 0.5f),
-                                      new Vector2(x, -122f), new Vector2(stepWidth - 24f, 44f));
-        }
-
-        // --- registro ---------------------------------------------------
-        ThemedUi.Text(card, "RotuloDoRegistro", "SEU REGISTRO NESTA FASE", 26f, theme.gold, new Vector2(0.5f, 0.5f),
-                      new Vector2(0f, -200f), new Vector2(1380f, 36f), spacing: 6f);
-        var record = ThemedUi.Text(card, "Registro", string.Empty, 28f, theme.ash, new Vector2(0.5f, 0.5f),
-                                   new Vector2(0f, -268f), new Vector2(1380f, 90f), bold: false);
-        record.textWrappingMode = TextWrappingModes.Normal;
 
         // --- teclas -----------------------------------------------------
         summary = ThemedUi.Text(card, "Dicas", string.Empty, 26f, theme.sand, new Vector2(0.5f, 0f),
-                                new Vector2(0f, 56f), new Vector2(1380f, 44f), spacing: 2f);
+                                new Vector2(0f, 50f), new Vector2(1100f, 40f), spacing: 2f);
 
         ThemedUi.Intro(holder, card);
 
@@ -621,11 +578,6 @@ public static class LevelKit
         EditorSetupUtil.SetReference(screen, "fallsValue", fallsValue);
         EditorSetupUtil.SetReference(screen, "bestValue", bestValue);
         EditorSetupUtil.SetReference(screen, "nextRankLabel", nextRank);
-        EditorSetupUtil.SetReference(screen, "recordLabel", record);
-        EditorSetupUtil.SetReferences(screen, "ladderPanels", panels);
-        EditorSetupUtil.SetReferences(screen, "ladderLetters", letters);
-        EditorSetupUtil.SetReferences(screen, "ladderLimits", limits);
-        EditorSetupUtil.SetReferences(screen, "ladderDeltas", deltas);
 
         return holder.gameObject;
     }
