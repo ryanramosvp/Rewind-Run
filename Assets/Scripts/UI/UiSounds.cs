@@ -52,7 +52,13 @@ public class UiSounds : MonoBehaviour
 
     public static void Confirm() => Play(Instance?.confirm, Instance != null ? Instance.uiVolume : 0f);
 
-    public static void Victory() => Play(Instance?.victory, Instance != null ? Instance.victoryVolume : 0f);
+    /// <summary>Fanfarra de vitória, com a música de fundo calada enquanto ela toca.</summary>
+    public static void Victory()
+    {
+        var clip = Instance != null ? Instance.victory : null;
+        if (clip != null) MusicPlayer.Hush(clip.length);
+        Play(clip, Instance != null ? Instance.victoryVolume : 0f);
+    }
 
     static void Play(AudioClip clip, float volume)
     {

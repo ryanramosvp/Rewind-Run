@@ -236,6 +236,9 @@ public static class WitchSetup
         var shadow = root.AddComponent<PlayerDropShadow>();
         EditorSetupUtil.SetReference(shadow, "material", DropShadowMaterial());
 
+        var rewindFx = root.AddComponent<PlayerRewindFx>();
+        EditorSetupUtil.SetReference(rewindFx, "glowMaterial", RewindGlowMaterial());
+
         root.AddComponent<PlayerDebugHud>();
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
@@ -264,6 +267,48 @@ public static class WitchSetup
 
         material.shader = shader;
         material.SetColor("_BaseColor", new Color(0.09f, 0.04f, 0.035f));
+
+        EditorUtility.SetDirty(material);
+        AssetDatabase.SaveAssets();
+        return material;
+    }
+
+    /// <summary>
+    /// Material dos efeitos do rewind: URP Unlit transparente e aditivo, sem
+    /// escrever profundidade e sem descartar faces de trás. Aditivo porque o
+    /// eco tem de parecer luz, não um fantasma cinza por cima do cenário - e
+    /// luz somada nunca escurece a lava atrás dela.
+    ///
+    /// As propriedades são postas uma a uma porque a interface do material
+    /// (que faria isso sozinha) só roda quando alguém o abre no Inspector.
+    /// </summary>
+    static Material RewindGlowMaterial()
+    {
+        System.IO.Directory.CreateDirectory(kShadowFolder);
+
+        string path = kShadowFolder + "/BrilhoDoRewind.mat";
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (material == null)
+        {
+            material = new Material(shader) { name = "BrilhoDoRewind" };
+            AssetDatabase.CreateAsset(material, path);
+        }
+
+        material.shader = shader;
+        material.SetColor("_BaseColor", new Color(0.35f, 0.78f, 1f, 0.5f));
+
+        material.SetFloat("_Surface", 1f);   // transparente
+        material.SetFloat("_Blend", 2f);     // aditivo
+        material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        material.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+        material.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+        material.SetFloat("_ZWrite", 0f);
+        material.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        material.SetOverrideTag("RenderType", "Transparent");
+        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
         EditorUtility.SetDirty(material);
         AssetDatabase.SaveAssets();

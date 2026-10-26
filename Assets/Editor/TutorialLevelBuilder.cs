@@ -40,6 +40,7 @@ public static class TutorialLevelBuilder
         CreateWideBase(level);
 
         var player = LevelKit.AssembleSystemsWithoutSession("Level_CorridaDeLava");
+        LevelKit.CreateMusic(LevelKit.LightLevelMusic);
         if (player != null)
         {
             Vector3 towardTower = new Vector3(-kSpawn.x, 0f, -kSpawn.z);

@@ -49,6 +49,7 @@ public static class BubbleLevelBuilder
         CreateCameraZones(zones);
 
         LevelKit.AssembleSystems(kRanks, "Level_LavaLetal");
+        LevelKit.CreateMusic(LevelKit.LightLevelMusic);
 
         HazardSetup.EnsureLava(new Vector3(0f, 0f, 65f), 70f, 170f);
         HazardSetup.EnsureRespawn();

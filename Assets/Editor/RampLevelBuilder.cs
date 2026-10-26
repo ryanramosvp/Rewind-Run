@@ -270,6 +270,7 @@ public static class RampLevelBuilder
         var spawn = At("Largada", 4f);
         // Última fase: a vitória leva à tela de resultados da campanha.
         var player = LevelKit.AssembleSystems(kRanks, ResultsSceneBuilder.SceneName, "ver resultados");
+        LevelKit.CreateMusic(LevelKit.DarkLevelMusic);
         if (player != null)
             player.transform.SetPositionAndRotation(spawn.Position + Vector3.up * 0.3f,
                                                     Quaternion.Euler(0f, spawn.Heading, 0f));

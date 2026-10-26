@@ -100,6 +100,64 @@ public static class LevelKit
         EditorSetupUtil.SetReference(sounds, "victory", Clip("fanfarra_vitoria.mp3"));
     }
 
+    // ------------------------------------------------------------------
+    // Música
+    // ------------------------------------------------------------------
+
+    /// <summary>Valsa das Flores (Tchaikovsky): menu e resultados. O jogo começa e termina nela.</summary>
+    public const string MenuMusic = "Musica/valsa_das_flores.mp3";
+
+    /// <summary>Abertura de As Bodas de Fígaro (Mozart): ligeira e constante, para as fases de aprender e embalar.</summary>
+    public const string LightLevelMusic = "Musica/figaro_abertura.mp3";
+
+    /// <summary>
+    /// Na Gruta do Rei da Montanha (Grieg): começa baixo e cresce até explodir.
+    /// Vai no vulcão e no fim, onde a campanha aperta.
+    /// </summary>
+    public const string DarkLevelMusic = "Musica/rei_da_montanha.mp3";
+
+    /// <summary>
+    /// Põe na cena o pedido de música: um <see cref="MusicPlayer"/> com a
+    /// faixa. Entre cenas, quem já toca continua tocando - ver o próprio
+    /// MusicPlayer.
+    /// </summary>
+    public static void CreateMusic(string fileName)
+    {
+        var clip = MusicClip(fileName);
+        var go = new GameObject("Musica");
+        var player = go.AddComponent<MusicPlayer>();
+        EditorSetupUtil.SetReference(player, "track", clip);
+    }
+
+    /// <summary>
+    /// Música vai como streaming: lida do disco aos pedaços enquanto toca. A
+    /// valsa tem sete minutos; descomprimida na memória seria um bloco de
+    /// dezenas de megabytes parado só para o menu.
+    /// </summary>
+    static AudioClip MusicClip(string fileName)
+    {
+        string path = "Assets/Audio/" + fileName;
+        var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+        if (importer == null)
+        {
+            Debug.LogWarning($"Música não encontrada: {path}.");
+            return null;
+        }
+
+        var settings = importer.defaultSampleSettings;
+        if (settings.loadType != AudioClipLoadType.Streaming || !importer.loadInBackground)
+        {
+            settings.loadType = AudioClipLoadType.Streaming;
+            settings.compressionFormat = AudioCompressionFormat.Vorbis;
+            settings.quality = 0.7f;
+            importer.defaultSampleSettings = settings;
+            importer.loadInBackground = true;
+            importer.SaveAndReimport();
+        }
+
+        return AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+    }
+
     static AudioClip Clip(string fileName)
     {
         string path = "Assets/Audio/" + fileName;

@@ -77,6 +77,7 @@ public static class VolcanoLevelBuilder
         CreateCameraZones(new GameObject("ZonasDeCamera").transform);
 
         var player = LevelKit.AssembleSystems(kRanks, RampLevelBuilder.SceneName);
+        LevelKit.CreateMusic(LevelKit.DarkLevelMusic);
         if (player != null) player.transform.SetPositionAndRotation(kSpawn, Quaternion.identity);
 
         var camera = Object.FindAnyObjectByType<OrbitCamera>();

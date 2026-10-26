@@ -60,6 +60,7 @@ public static class SpeedrunLevelBuilder
         CreateCameraZones(zones);
 
         LevelKit.AssembleSystems(kRanks, "Level_TorreDeBolhas");
+        LevelKit.CreateMusic(LevelKit.LightLevelMusic);
 
         HazardSetup.EnsureLava(new Vector3(0f, 0f, 75f), 90f, 190f);
         HazardSetup.EnsureRespawn();

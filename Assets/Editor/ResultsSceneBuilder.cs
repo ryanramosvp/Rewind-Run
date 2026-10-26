@@ -36,6 +36,7 @@ public static class ResultsSceneBuilder
         MenuSceneBuilder.BuildBackdrop();
         CreateInterface();
         LevelKit.CreateAudio();
+        LevelKit.CreateMusic(LevelKit.MenuMusic);
 
         System.IO.Directory.CreateDirectory("Assets/Scenes");
         EditorSceneManager.SaveScene(scene, ScenePath);

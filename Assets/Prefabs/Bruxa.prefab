@@ -51,6 +51,7 @@ GameObject:
   - component: {fileID: 8748781876147543461}
   - component: {fileID: 4129738744796908046}
   - component: {fileID: 6054881024116493804}
+  - component: {fileID: 3814801947932565007}
   - component: {fileID: 2443739791080390858}
   m_Layer: 0
   m_Name: Bruxa
@@ -136,6 +137,7 @@ MonoBehaviour:
   airBrake: 30
   airReleaseDrag: 9
   airReverseAngle: 120
+  basisCatchUpSpeed: 90
   turnSpeed: 900
   airTurnVisualSpeed: 300
   jumpHeight: 3.2
@@ -367,6 +369,30 @@ MonoBehaviour:
   shrinkHeight: 12
   minScale: 0.7
   maxDistance: 80
+--- !u!114 &3814801947932565007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8002811151075786783}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0047f582cc77c442af95d8557463c0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerRewindFx
+  glowMaterial: {fileID: 2100000, guid: 6b98a555b4eb6c64780060b1173ba386, type: 2}
+  rewindColor: {r: 0.35, g: 0.78, b: 1, a: 1}
+  resumeColor: {r: 1, g: 0.78, b: 0.32, a: 1}
+  ghostInterval: 0.09
+  ghostLifetime: 0.65
+  ghostSpacing: 0.6
+  ghostAlpha: 0.6
+  maxGhosts: 12
+  veilAlpha: 0.35
+  veilPulseSpeed: 14
+  ringSeconds: 0.4
+  ringRadius: 3
 --- !u!114 &2443739791080390858
 MonoBehaviour:
   m_ObjectHideFlags: 0

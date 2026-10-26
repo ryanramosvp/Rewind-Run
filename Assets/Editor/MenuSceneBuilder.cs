@@ -34,6 +34,7 @@ public static class MenuSceneBuilder
 
         CreateInterface();
         LevelKit.CreateAudio();
+        LevelKit.CreateMusic(LevelKit.MenuMusic);
 
         System.IO.Directory.CreateDirectory("Assets/Scenes");
         EditorSceneManager.SaveScene(scene, kScenePath);
