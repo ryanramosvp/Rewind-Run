@@ -18,6 +18,9 @@ public class PlayerInputReader : MonoBehaviour
     public bool JumpPressedThisFrame { get; private set; }
     public bool RewindHeld { get; private set; }
 
+    /// <summary>Apertou o impulso neste quadro. Falso se o asset de input não tiver a ação.</summary>
+    public bool DashPressedThisFrame { get; private set; }
+
     /// <summary>
     /// Qual dispositivo mexeu a câmera por último. Mouse entrega pixels de
     /// deslocamento e analógico entrega -1..1, então a sensibilidade dos dois
@@ -26,7 +29,7 @@ public class PlayerInputReader : MonoBehaviour
     public bool LookIsGamepad { get; private set; }
 
     InputActionMap _playerMap;
-    InputAction _move, _look, _jump, _rewind;
+    InputAction _move, _look, _jump, _rewind, _dash;
 
     void Awake()
     {
@@ -43,6 +46,9 @@ public class PlayerInputReader : MonoBehaviour
         _look = _playerMap.FindAction("Look", throwIfNotFound: true);
         _jump = _playerMap.FindAction("Jump", throwIfNotFound: true);
         _rewind = _playerMap.FindAction("Rewind", throwIfNotFound: true);
+
+        // Opcional: um asset antigo sem a ação continua funcionando, só sem impulso.
+        _dash = _playerMap.FindAction("Dash", throwIfNotFound: false);
     }
 
     void OnEnable() => _playerMap?.Enable();
@@ -56,6 +62,7 @@ public class PlayerInputReader : MonoBehaviour
         JumpHeld = _jump.IsPressed();
         JumpPressedThisFrame = _jump.WasPressedThisFrame();
         RewindHeld = _rewind.IsPressed();
+        DashPressedThisFrame = _dash != null && _dash.WasPressedThisFrame();
 
         // activeControl fica null quando o analógico volta ao centro, então só
         // atualizamos quando há um controle ativo de verdade.

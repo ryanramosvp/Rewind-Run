@@ -25,6 +25,35 @@ public class LevelRespawn : MonoBehaviour
     Vector3 _spawnPosition;
     Quaternion _spawnRotation;
 
+    bool _temPontoDeControle;
+    Vector3 _pontoPosicao;
+    Quaternion _pontoRotacao;
+    Object _pontoAtual;
+
+    /// <summary>
+    /// A bruxa já tocou um ponto de controle nesta fase. O placar consulta
+    /// isto para não zerar o cronômetro na morte.
+    /// </summary>
+    public bool TemPontoDeControle => _temPontoDeControle;
+
+    /// <summary>
+    /// Passa a renascer aqui. Devolve verdadeiro só quando é um ponto novo -
+    /// passar de novo pelo mesmo não toca o som nem acende nada outra vez.
+    /// </summary>
+    public bool DefinirPontoDeControle(Object dono, Vector3 posicao, Quaternion rotacao)
+    {
+        if (_temPontoDeControle && _pontoAtual == dono) return false;
+
+        _temPontoDeControle = true;
+        _pontoAtual = dono;
+        _pontoPosicao = posicao;
+        _pontoRotacao = rotacao;
+        return true;
+    }
+
+    /// <summary>O ponto de controle ativo é este?</summary>
+    public bool EhPontoAtual(Object dono) => _temPontoDeControle && _pontoAtual == dono;
+
     readonly List<RewindableTransform> _props = new List<RewindableTransform>();
     readonly List<Vector3> _propPositions = new List<Vector3>();
     readonly List<Quaternion> _propRotations = new List<Quaternion>();
@@ -94,7 +123,9 @@ public class LevelRespawn : MonoBehaviour
         var controller = player.GetComponent<CharacterController>();
         if (controller != null) controller.enabled = false;
 
-        player.transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+        // Com ponto de controle, renasce nele; sem, no começo da fase, como sempre.
+        if (_temPontoDeControle) player.transform.SetPositionAndRotation(_pontoPosicao, _pontoRotacao);
+        else player.transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
 
         if (controller != null) controller.enabled = true;
 

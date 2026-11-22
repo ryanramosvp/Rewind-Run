@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Sons da bruxa. Hoje, o pulo.
+/// Sons da bruxa: o pulo e o impulso no ar.
 ///
 /// Escuta o evento <see cref="PlayerController.Jumped"/> em vez de olhar o
 /// estado a cada frame: o evento já diz o instante exato e, de graça, se foi o
@@ -37,12 +37,25 @@ public class PlayerAudio : MonoBehaviour
 
     void OnEnable()
     {
-        if (_player != null) _player.Jumped += OnJumped;
+        if (_player == null) return;
+        _player.Jumped += OnJumped;
+        _player.Dashed += OnDashed;
     }
 
     void OnDisable()
     {
-        if (_player != null) _player.Jumped -= OnJumped;
+        if (_player == null) return;
+        _player.Jumped -= OnJumped;
+        _player.Dashed -= OnDashed;
+    }
+
+    /// <summary>O impulso usa um som gerado por código (ver <see cref="SomProcedural"/>).</summary>
+    void OnDashed()
+    {
+        if (_source == null) return;
+
+        _source.pitch = 1f;
+        _source.PlayOneShot(SomProcedural.Impulso, volume);
     }
 
     void OnJumped(bool isAirJump)

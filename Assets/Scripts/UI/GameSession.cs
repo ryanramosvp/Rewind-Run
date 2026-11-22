@@ -76,7 +76,12 @@ public class GameSession : MonoBehaviour
     public void RegisterDeath()
     {
         Deaths++;
-        _startTime = Time.time;
+
+        // Com ponto de controle o cronômetro segue: a bruxa não volta ao
+        // começo, então zerar mediria só o trecho depois do ponto. Numa fase
+        // longa a morte custa o tempo perdido, e esse custo já é o castigo.
+        var respawn = LevelRespawn.Instance;
+        if (respawn == null || !respawn.TemPontoDeControle) _startTime = Time.time;
     }
 
     public void Finish()

@@ -32,7 +32,12 @@ public class RadialCameraFraming : MonoBehaviour
     [SerializeField, Min(3f)] float distance = 19f;
     [SerializeField, Min(0.1f)] float blendSeconds = 0.9f;
 
+    [Tooltip("Além desta distância do centro a câmera fica com as zonas de câmera da fase. " +
+             "Zero vale para qualquer distância (o tutorial).")]
+    [SerializeField, Min(0f)] float raioMaximo;
+
     int _sector = -1;
+    bool _fora;
 
     void Start()
     {
@@ -54,13 +59,22 @@ public class RadialCameraFraming : MonoBehaviour
         // Em cima do centro "para fora" não tem direção; fica a fatia atual.
         if (outward.sqrMagnitude < 1f) return;
 
+        // Longe do centro quem enquadra são as zonas de câmera. Ao voltar,
+        // a fatia é reaplicada com a passagem suave de sempre.
+        if (raioMaximo > 0f && outward.sqrMagnitude > raioMaximo * raioMaximo)
+        {
+            _fora = true;
+            return;
+        }
+
         float angle = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg;
         float width = 360f / sectors;
 
-        if (_sector >= 0 && Mathf.Abs(Mathf.DeltaAngle(_sector * width, angle)) <= width * 0.5f + hysteresis)
+        if (!_fora && _sector >= 0 && Mathf.Abs(Mathf.DeltaAngle(_sector * width, angle)) <= width * 0.5f + hysteresis)
             return;
 
         bool first = _sector < 0;
+        _fora = false;
         _sector = Mathf.RoundToInt(Mathf.Repeat(angle, 360f) / width) % sectors;
 
         // +180: a câmera fica do lado de fora da bruxa, olhando para o centro.

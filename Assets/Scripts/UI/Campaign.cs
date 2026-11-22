@@ -30,6 +30,8 @@ public static class Campaign
         new Level("Level_TorreDeBolhas", "Torre de Bolhas"),
         new Level("Level_LavaLetal", "Terra da Lava Letal"),
         new Level("Level_RampaVulcanica", "Rampa Vulcânica"),
+        new Level("Level_RelojoariaSuspensa", "Relojoaria Suspensa"),
+        new Level("Level_CoracaoDoTempo", "Coração do Tempo"),
     };
 
     public static string FirstLevel => Levels[0].Id;

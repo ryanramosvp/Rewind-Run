@@ -36,7 +36,8 @@ public static class ResultsSceneBuilder
         MenuSceneBuilder.BuildBackdrop();
         CreateInterface();
         LevelKit.CreateAudio();
-        LevelKit.CreateMusic(LevelKit.MenuMusic);
+        // Sem faixa: o coro do encerramento continua por baixo dos resultados.
+        LevelKit.CreateMusic(null);
 
         System.IO.Directory.CreateDirectory("Assets/Scenes");
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -56,10 +57,11 @@ public static class ResultsSceneBuilder
         // Escurece sem apagar: o vulcão ainda aparece nas bordas.
         ThemedUi.Backdrop(root, new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.6f));
 
-        var card = ThemedUi.Card(root, "Cartao", "CAMPANHA CONCLUÍDA", new Vector2(0f, 40f),
-                                 new Vector2(1440f, 900f), out _);
+        // Seis fases: linhas de 78 a cada 86, no cartão de 980.
+        var card = ThemedUi.Card(root, "Cartao", "CAMPANHA CONCLUÍDA", new Vector2(0f, 20f),
+                                 new Vector2(1440f, 980f), out _);
 
-        float headerY = 450f - ThemedUi.CardHeader - 34f;
+        float headerY = 490f - ThemedUi.CardHeader - 30f;
         Header(card, "FASE", NameX, NameWidth, headerY, TextAlignmentOptions.MidlineLeft);
         Header(card, "TEMPO", TimeX, TimeWidth, headerY);
         Header(card, "NOTA", RankX, RankWidth, headerY);
@@ -74,8 +76,8 @@ public static class ResultsSceneBuilder
         var bests = new TMP_Text[count];
         var items = new System.Collections.Generic.List<RectTransform> { card };
 
-        float y = headerY - 72f;
-        for (int i = 0; i < count; i++, y -= 104f)
+        float y = headerY - 60f;
+        for (int i = 0; i < count; i++, y -= 86f)
         {
             var row = Row(card, $"Linha_{i + 1}", y, theme.stone, theme.metalDark);
             items.Add(row);
@@ -84,8 +86,8 @@ public static class ResultsSceneBuilder
                                       new Vector2(NameWidth, 50f), TextAlignmentOptions.MidlineLeft, spacing: 3f);
             times[i] = ThemedUi.Text(row, "Tempo", "", 40f, theme.highlightText, Center, new Vector2(TimeX, 0f),
                                      new Vector2(TimeWidth, 54f), material: theme.titleMaterial);
-            ranks[i] = ThemedUi.Text(row, "Nota", "", 62f, theme.gold, Center, new Vector2(RankX, 0f),
-                                     new Vector2(RankWidth, 80f), material: theme.titleMaterial);
+            ranks[i] = ThemedUi.Text(row, "Nota", "", 54f, theme.gold, Center, new Vector2(RankX, 0f),
+                                     new Vector2(RankWidth, 70f), material: theme.titleMaterial);
             deaths[i] = ThemedUi.Text(row, "Mortes", "", 38f, theme.sand, Center, new Vector2(DeathsX, 0f),
                                       new Vector2(DeathsWidth, 54f));
             bests[i] = ThemedUi.Text(row, "Recorde", "", 22f, theme.ash, Center, new Vector2(BestX, 0f),
@@ -93,7 +95,7 @@ public static class ResultsSceneBuilder
         }
 
         // Total: placa mais clara e moldura dourada - é a linha que resume.
-        y -= 18f;
+        y -= 12f;
         var total = Row(card, "Total", y, theme.stoneLit, theme.gold);
         items.Add(total);
         ThemedUi.Text(total, "Rotulo", "TOTAL  ·  NOTA FINAL", 34f, theme.gold, Center, new Vector2(NameX, 0f),
@@ -106,16 +108,21 @@ public static class ResultsSceneBuilder
                                         new Vector2(DeathsWidth, 56f));
 
         // Saídas, lado a lado: esquerda e direita navegam entre elas.
-        var again = ThemedUi.MenuButton(card, "JOGAR DE NOVO", new Vector2(-250f, -350f), new Vector2(460f, 88f),
+        float buttonsY = y - 112f;
+        var again = ThemedUi.MenuButton(card, "JOGAR DE NOVO", new Vector2(-460f, buttonsY), new Vector2(420f, 86f),
                                         out var againSlot, out _);
-        var menu = ThemedUi.MenuButton(card, "MENU", new Vector2(250f, -350f), new Vector2(460f, 88f),
+        var credits = ThemedUi.MenuButton(card, "CRÉDITOS", new Vector2(0f, buttonsY), new Vector2(420f, 86f),
+                                          out var creditsSlot, out _);
+        var menu = ThemedUi.MenuButton(card, "MENU", new Vector2(460f, buttonsY), new Vector2(420f, 86f),
                                        out var menuSlot, out _);
-        again.navigation = new Navigation { mode = Navigation.Mode.Horizontal, wrapAround = true };
-        menu.navigation = new Navigation { mode = Navigation.Mode.Horizontal, wrapAround = true };
+        foreach (var button in new[] { again, credits, menu })
+            button.navigation = new Navigation { mode = Navigation.Mode.Horizontal, wrapAround = true };
         items.Add(againSlot);
+        items.Add(creditsSlot);
         items.Add(menuSlot);
 
         UiBuilder.Bind(again, results, nameof(CampaignResults.PlayAgain));
+        UiBuilder.Bind(credits, results, nameof(CampaignResults.AbrirCreditos));
         UiBuilder.Bind(menu, results, nameof(CampaignResults.ToMenu));
 
         ThemedUi.Text(root, "Dica", "SETAS / ANALÓGICO  escolher      ENTER / A  confirmar      ESC / B  menu", 22f,
@@ -140,7 +147,7 @@ public static class ResultsSceneBuilder
 
     static RectTransform Row(RectTransform card, string name, float y, Color stone, Color frame)
     {
-        var plate = ThemedUi.Plate(card, name, Center, Center, new Vector2(0f, y), new Vector2(1360f, 92f), stone,
+        var plate = ThemedUi.Plate(card, name, Center, Center, new Vector2(0f, y), new Vector2(1360f, 78f), stone,
                                    out var border);
         border.color = frame;
         return plate.rectTransform;

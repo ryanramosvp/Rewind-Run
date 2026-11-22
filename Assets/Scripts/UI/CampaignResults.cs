@@ -35,6 +35,7 @@ public class CampaignResults : MonoBehaviour
     [SerializeField] Button playAgainButton;
     [SerializeField] Button menuButton;
     [SerializeField] string menuScene = "Menu";
+    [SerializeField] string creditsScene = "Creditos";
 
     const string kDigits = "<mspace=0.6em>{0}</mspace>";
 
@@ -76,6 +77,9 @@ public class CampaignResults : MonoBehaviour
     public void PlayAgain() => SceneManager.LoadScene(Campaign.FirstLevel);
 
     public void ToMenu() => SceneManager.LoadScene(menuScene);
+
+    /// <summary>Créditos do jogo. De lá, a saída leva ao menu.</summary>
+    public void AbrirCreditos() => SceneManager.LoadScene(creditsScene);
 
     void Fill()
     {

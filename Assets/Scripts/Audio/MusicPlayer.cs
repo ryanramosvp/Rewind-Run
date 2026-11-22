@@ -92,6 +92,15 @@ public class MusicPlayer : MonoBehaviour
         s_Active._hushUntil = Mathf.Max(s_Active._hushUntil, Time.unscaledTime + seconds);
     }
 
+    /// <summary>
+    /// Troca a faixa no meio de uma cena, com a mesma passagem suave da troca
+    /// de cena - a sequência final usa isto para o coro entrar.
+    /// </summary>
+    public static void Tocar(AudioClip clip)
+    {
+        if (s_Active != null) s_Active.Play(clip);
+    }
+
     /// <summary>Troca para a faixa pedida. A mesma faixa segue sem recomeçar.</summary>
     public void Play(AudioClip clip)
     {

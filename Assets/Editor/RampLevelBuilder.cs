@@ -5,7 +5,7 @@ using UnityEngine;
 using static VolcanicKit;
 
 /// <summary>
-/// Fase 4, a última: Rampa Vulcânica - um escorregador de pedra sobre a lava,
+/// Fase 4: Rampa Vulcânica - um escorregador de pedra sobre a lava,
 /// no espírito do escorregador de gelo do Super Mario 64.
 ///
 /// A pista é uma faixa contínua gerada ao longo de um traçado: retas e curvas,
@@ -268,8 +268,7 @@ public static class RampLevelBuilder
         CreateScenery(Group(level, "Cenario"));
 
         var spawn = At("Largada", 4f);
-        // Última fase: a vitória leva à tela de resultados da campanha.
-        var player = LevelKit.AssembleSystems(kRanks, ResultsSceneBuilder.SceneName, "ver resultados");
+        var player = LevelKit.AssembleSystems(kRanks, RelojoariaLevelBuilder.SceneName, null);
         LevelKit.CreateMusic(LevelKit.DarkLevelMusic);
         if (player != null)
             player.transform.SetPositionAndRotation(spawn.Position + Vector3.up * 0.3f,
@@ -891,7 +890,7 @@ public static class RampLevelBuilder
     /// Uma bola gigante: rocha poliédrica com veios de brasa, gatilho letal
     /// esférico (85% do raio, para raspão não matar) e o RollingBoulder.
     /// </summary>
-    static void Boulder(Transform root, string name, List<Vector3> path, float radius, float speed, float acceleration,
+    internal static GameObject Boulder(Transform root, string name, List<Vector3> path, float radius, float speed, float acceleration,
                         float maxSpeed, bool looping, float period, float phase, Bounds trigger)
     {
         var go = new GameObject(name);
@@ -924,6 +923,7 @@ public static class RampLevelBuilder
         so.FindProperty("visual").objectReferenceValue = visual.transform;
         so.FindProperty("hazard").objectReferenceValue = area;
         so.ApplyModifiedPropertiesWithoutUndo();
+        return go;
     }
 
     /// <summary>

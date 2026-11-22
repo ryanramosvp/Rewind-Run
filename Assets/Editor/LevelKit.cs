@@ -116,6 +116,12 @@ public static class LevelKit
     /// </summary>
     public const string DarkLevelMusic = "Musica/rei_da_montanha.mp3";
 
+    /// <summary>Sonata 33 (Paganini), violão: leve e paciente, para o tutorial.</summary>
+    public const string TutorialMusic = "Musica/sonata33_paganini.mp3";
+
+    /// <summary>Rêverie (Debussy): os créditos.</summary>
+    public const string CreditsMusic = "Musica/reverie_debussy.mp3";
+
     /// <summary>
     /// Põe na cena o pedido de música: um <see cref="MusicPlayer"/> com a
     /// faixa. Entre cenas, quem já toca continua tocando - ver o próprio
@@ -123,7 +129,9 @@ public static class LevelKit
     /// </summary>
     public static void CreateMusic(string fileName)
     {
-        var clip = MusicClip(fileName);
+        // Sem faixa, a cena só mantém a que já toca: os resultados seguem com o
+        // coro do encerramento.
+        var clip = string.IsNullOrEmpty(fileName) ? null : MusicClip(fileName);
         var go = new GameObject("Musica");
         var player = go.AddComponent<MusicPlayer>();
         EditorSetupUtil.SetReference(player, "track", clip);
@@ -134,7 +142,7 @@ public static class LevelKit
     /// valsa tem sete minutos; descomprimida na memória seria um bloco de
     /// dezenas de megabytes parado só para o menu.
     /// </summary>
-    static AudioClip MusicClip(string fileName)
+    public static AudioClip MusicClip(string fileName)
     {
         string path = "Assets/Audio/" + fileName;
         var importer = AssetImporter.GetAtPath(path) as AudioImporter;
@@ -446,7 +454,36 @@ public static class LevelKit
             EditorSetupUtil.SetReference(hud, "player", player.GetComponent<PlayerController>());
 
         CreateRewindBar(root);
+        CreateHintPanel(root);
         return hud;
+    }
+
+    /// <summary>
+    /// Cartão de dica no alto, no meio: o único elemento da HUD fora dos
+    /// cantos, e só por alguns segundos, quando uma mecânica nova aparece
+    /// (ver <see cref="PainelDeAvisos"/>). Fica no alto porque embaixo é onde
+    /// a bruxa e o próximo vão estão.
+    /// </summary>
+    public static void CreateHintPanel(Transform root)
+    {
+        var theme = ThemedUi.Theme;
+        var stone = new Color(theme.basalt.r, theme.basalt.g, theme.basalt.b, 0.92f);
+
+        var plate = ThemedUi.Plate(root, "Aviso", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                   new Vector2(0f, -28f), new Vector2(980f, 84f), stone, out var frame);
+        frame.color = theme.gold;
+        var group = plate.gameObject.AddComponent<CanvasGroup>();
+        group.alpha = 0f;
+        group.interactable = false;
+        group.blocksRaycasts = false;
+
+        var text = ThemedUi.Text(plate.transform, "Texto", "", 30f, theme.sand, new Vector2(0.5f, 0.5f),
+                                 Vector2.zero, new Vector2(920f, 64f));
+        text.textWrappingMode = TMPro.TextWrappingModes.Normal;
+
+        var panel = plate.gameObject.AddComponent<PainelDeAvisos>();
+        EditorSetupUtil.SetReference(panel, "grupo", group);
+        EditorSetupUtil.SetReference(panel, "texto", text);
     }
 
     /// <summary>

@@ -101,6 +101,13 @@ public static class SaveSystem
     {
         public int version = kVersion;
         public CampaignProgress progress = new CampaignProgress();
+
+        /// <summary>
+        /// Quantas vezes a campanha foi terminada até o fim. Fica fora do
+        /// progresso de propósito: o Novo jogo zera a campanha, não o que o
+        /// jogador já conquistou. Saves antigos não têm o campo e leem zero.
+        /// </summary>
+        public int campanhasConcluidas;
         public List<LevelRecord> levels = new List<LevelRecord>();
     }
 
@@ -284,6 +291,27 @@ public static class SaveSystem
         changed |= AddOnce(progress.unlockedLevels, levelId);
 
         if (changed) Write();
+    }
+
+    /// <summary>Vezes que a campanha foi terminada, contando a sequência final.</summary>
+    public static int CampanhasConcluidas
+    {
+        get
+        {
+            Load();
+            return _data.campanhasConcluidas;
+        }
+    }
+
+    /// <summary>
+    /// Registra o fim da campanha. A fase final já foi gravada como concluída
+    /// pelo <see cref="RecordRun"/>; isto conta a jornada inteira.
+    /// </summary>
+    public static void ConcluirCampanha()
+    {
+        Load();
+        _data.campanhasConcluidas++;
+        Write();
     }
 
     /// <summary>

@@ -66,11 +66,19 @@ public class RollingBoulder : MonoBehaviour
     /// <summary>Comprimento do caminho, em metros.</summary>
     public float Length => _total;
 
+    RelogioLocal _clock;
+    float _phaseTime;
+
     void Awake()
     {
         BuildLengths();
         if (hazard != null) hazard.isTrigger = true;
-        _time = phase * period;
+        _phaseTime = phase * period;
+        _time = _phaseTime;
+
+        // Com relógio local, a bola anda no tempo dele: uma zona de âmbar no
+        // caminho a deixa lenta enquanto ela a atravessa.
+        _clock = GetComponent<RelogioLocal>();
     }
 
     void Start()
@@ -95,7 +103,8 @@ public class RollingBoulder : MonoBehaviour
         var manager = RewindManager.Instance;
         bool rewinding = manager != null && manager.IsRewinding;
 
-        if (rewinding) _time -= Time.deltaTime * manager.RewindSpeed;
+        if (_clock != null) _time = _phaseTime + _clock.Tempo;
+        else if (rewinding) _time -= Time.deltaTime * manager.RewindSpeed;
         else _time += Time.deltaTime;
 
         if (!looping)

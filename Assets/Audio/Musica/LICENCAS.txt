@@ -1,0 +1,39 @@
+Músicas do Rewind Run e suas licenças
+=====================================
+
+Gravações de classicals.de (pedido do site: creditar www.classicals.de)
+
+- Bach — Badinerie, BWV 1067 (arranjo para madeiras e cordas)
+  Gravação: Gregor Quendel — https://www.gregorquendel.com
+  Licença: não veio arquivo de licença junto; conferir em https://www.classicals.de
+  Uso: Fase 5 (Relojoaria Suspensa)
+
+- Tchaikovsky — Sinfonia nº 4, Op. 36 — IV. Finale. Allegro con fuoco (trecho)
+  Gravação: Gregor Quendel — https://www.gregorquendel.com
+  Licença: não veio arquivo de licença junto; conferir em https://www.classicals.de
+  Uso: Fase 6 (Coração do Tempo)
+
+- Domenico Scarlatti — Stabat Mater — 10. Amen
+  Intérpretes: The Tudor Consort — https://www.tudor-consort.org.nz
+  Licença: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+  Alteração: o final foi cortado aos 89,8 s para retirar os aplausos da gravação ao vivo.
+  Uso: sequência final
+
+- Paganini — Sonata nº 33, MS 84 (arranjo para violão)
+  Gravação: Gregor Quendel — https://www.gregorquendel.com
+  Licença: CC BY-NC 4.0 — https://creativecommons.org/licenses/by-nc/4.0/ (uso não comercial)
+  Uso: tutorial
+
+- Debussy — Rêverie, L. 68
+  Gravação: Gregor Quendel — https://www.gregorquendel.com
+  Licença: CC BY-NC 4.0 — https://creativecommons.org/licenses/by-nc/4.0/ (uso não comercial)
+  Uso: créditos
+
+Gravações sem informação de origem nos arquivos (preencher)
+
+- Tchaikovsky — Valsa das Flores (O Quebra-Nozes) — menu
+  Arquivo veio como "(No Copyright Music) Waltz of the Flowers"; intérprete/fonte: [PREENCHER]
+- Mozart — As Bodas de Fígaro, abertura, K. 492 — fases 1-2
+  Intérprete/fonte: [PREENCHER]
+- Grieg — Peer Gynt, Suíte nº 1 — Na Gruta do Rei da Montanha — fases 3-4
+  Intérprete/fonte: [PREENCHER]

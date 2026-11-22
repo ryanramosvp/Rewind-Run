@@ -26,6 +26,8 @@ public class MainMenu : MonoBehaviour
     [Tooltip("Cena do tutorial. Ao terminar, ela mesma segue para a fase.")]
     [SerializeField] string tutorialScene = "Tutorial";
 
+    [SerializeField] string creditsScene = "Creditos";
+
     [Tooltip("Pergunta se quer fazer o tutorial. Vazio faz o Novo jogo ir direto para a fase.")]
     [SerializeField] GameObject tutorialPanel;
     [SerializeField] Button tutorialYesButton;
@@ -470,6 +472,9 @@ public class MainMenu : MonoBehaviour
         if (label != null) label.text = on ? "LIGADO" : "DESLIGADO";
         if (pill != null) pill.color = on ? OnColor : OffColor;
     }
+
+    /// <summary>Créditos, a partir do menu: a mesma tela do fim da campanha.</summary>
+    public void AbrirCreditos() => SceneManager.LoadScene(creditsScene);
 
     public void Quit()
     {

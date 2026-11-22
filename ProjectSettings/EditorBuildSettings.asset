@@ -24,8 +24,17 @@ EditorBuildSettings:
     path: Assets/Scenes/Level_RampaVulcanica.unity
     guid: aab802396154bb447a61a0df0185df53
   - enabled: 1
+    path: Assets/Scenes/Level_RelojoariaSuspensa.unity
+    guid: 8056bbe4b1abbfa43957207aca931773
+  - enabled: 1
+    path: Assets/Scenes/Level_CoracaoDoTempo.unity
+    guid: 0c886f0b57e66484a8eee452895084a3
+  - enabled: 1
     path: Assets/Scenes/Resultados.unity
     guid: 03e487cf186fffa4f9306ab5b9ff424a
+  - enabled: 1
+    path: Assets/Scenes/Creditos.unity
+    guid: 4f042a8097b7bf64ca9e47be3b78345b
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

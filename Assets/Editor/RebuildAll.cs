@@ -28,9 +28,12 @@ public static class RebuildAll
         BubbleLevelBuilder.Build();
         VolcanoLevelBuilder.Build();
         RampLevelBuilder.Build();
+        RelojoariaLevelBuilder.Build();
+        CoracaoLevelBuilder.Build();
         ResultsSceneBuilder.Build();
+        CreditsSceneBuilder.Build();
 
-        Debug.Log("Reconstruído: bruxa, menu, tutorial, Corrida de Lava, Torre de Bolhas, Terra da Lava Letal, Rampa Vulcânica e resultados. " +
+        Debug.Log("Reconstruído: bruxa, menu, tutorial, Corrida de Lava, Torre de Bolhas, Terra da Lava Letal, Rampa Vulcânica, Relojoaria Suspensa, Coração do Tempo, resultados e créditos. " +
                   "A bancada de testes não entra aqui - ela é separada de propósito, " +
                   "para não sobrescrever o que você estiver conferindo nela.");
     }

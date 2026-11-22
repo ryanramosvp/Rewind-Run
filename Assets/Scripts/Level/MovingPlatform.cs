@@ -16,9 +16,13 @@ using UnityEngine;
 /// plataforma exatamente onde ela estava naquele instante. Antes ela congelava
 /// durante o rewind: a bruxa voltava três segundos e a plataforma não, e o
 /// jogador podia ser devolvido a um ponto onde a plataforma já não estava.
+///
+/// Com um <see cref="RelogioLocal"/> no mesmo objeto, o tempo vem dele: as
+/// zonas de âmbar desaceleram a plataforma e o rewind usa o tempo gravado.
+/// Sem ele, fica o relógio próprio de sempre.
 /// </summary>
 [DefaultExecutionOrder(-200)]
-public class MovingPlatform : MonoBehaviour
+public class MovingPlatform : MonoBehaviour, IPlataformaMovel
 {
     [Tooltip("Deslocamento em relação à posição inicial, no fim do percurso.")]
     [SerializeField] Vector3 offset = new Vector3(0f, 0f, 8f);
@@ -49,12 +53,20 @@ public class MovingPlatform : MonoBehaviour
 
     Vector3 _start;
     float _time;
+    float _phaseTime;
+    RelogioLocal _clock;
 
     void Awake()
     {
         _start = transform.position;
-        _time = phase * CycleSeconds;
+        _phaseTime = phase * CycleSeconds;
+        _time = _phaseTime;
+        _clock = GetComponent<RelogioLocal>();
     }
+
+    public Vector3 DeslocamentoEm(Vector3 ponto) => Delta;
+
+    public Vector3 VelocidadeEm(Vector3 ponto) => Velocity;
 
     float ReturnSeconds => returnSeconds > 0f ? returnSeconds : travelSeconds;
     float EndWaitSeconds => endWaitSeconds >= 0f ? endWaitSeconds : waitSeconds;
@@ -69,7 +81,8 @@ public class MovingPlatform : MonoBehaviour
         var manager = RewindManager.Instance;
         IsRewinding = manager != null && manager.IsRewinding;
 
-        if (IsRewinding) _time -= Time.deltaTime * manager.RewindSpeed;
+        if (_clock != null) _time = _phaseTime + _clock.Tempo;
+        else if (IsRewinding) _time -= Time.deltaTime * manager.RewindSpeed;
         else _time += Time.deltaTime;
 
         Vector3 next = _start + offset * Progress(Mathf.Repeat(_time, CycleSeconds));

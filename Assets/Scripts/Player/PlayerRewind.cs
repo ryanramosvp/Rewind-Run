@@ -8,6 +8,7 @@ public struct PlayerSample
     public Vector3 HorizontalVelocity;
     public float VerticalVelocity;
     public int AirJumpsUsed;
+    public bool DashUsed;
     public PlayerMoveState State;
     public float HopBonus;
 }
@@ -38,6 +39,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
         HorizontalVelocity = _player.HorizontalVelocity,
         VerticalVelocity = _player.VerticalVelocity,
         AirJumpsUsed = _player.AirJumpsUsed,
+        DashUsed = _player.DashUsed,
         State = _player.State,
         HopBonus = _player.HopBonus,
     };
@@ -53,6 +55,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
 
             // Contagem e estado não se interpolam: ficam com a amostra mais próxima.
             AirJumpsUsed = t >= 0.5f ? newer.AirJumpsUsed : older.AirJumpsUsed,
+            DashUsed = t >= 0.5f ? newer.DashUsed : older.DashUsed,
             State = t >= 0.5f ? newer.State : older.State,
             HopBonus = Mathf.Lerp(older.HopBonus, newer.HopBonus, t),
         };
@@ -71,6 +74,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
                              _lastApplied.VerticalVelocity,
                              _lastApplied.AirJumpsUsed,
                              _lastApplied.State,
-                             _lastApplied.HopBonus);
+                             _lastApplied.HopBonus,
+                             _lastApplied.DashUsed);
     }
 }

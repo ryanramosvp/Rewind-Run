@@ -160,6 +160,24 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Distância máxima que o slide desce para continuar colado à rampa.")]
     [SerializeField, Min(0f)] float groundSnapDistance = 0.5f;
 
+    [Header("Impulso no ar (dash)")]
+    [Tooltip("Liga o impulso nesta fase. Fica desligado nas fases 1 a 4: elas foram " +
+             "medidas sem ele, e o alcance a mais abriria atalhos que pulam o desenho delas.")]
+    [SerializeField] bool dashLiberado;
+
+    [Tooltip("Velocidade horizontal durante o impulso, em m/s. Com 24 m/s por 0,18 s o " +
+             "impulso soma uns 7 m ao salto - abaixo disso ele quase não muda o alcance " +
+             "do pulo duplo, que já chega a 18 m, e deixa de ter função.")]
+    [SerializeField, Min(0f)] float dashSpeed = 24f;
+
+    [Tooltip("Duração do impulso. Sem gravidade nesse tempo: é o que deixa o impulso " +
+             "atravessar um vão em vez de só empurrar para baixo mais depressa.")]
+    [SerializeField, Min(0.02f)] float dashSeconds = 0.18f;
+
+    [Tooltip("Velocidade que sobra ao fim do impulso. Pouco acima da corrida: o impulso " +
+             "estica o salto sem virar um segundo pulo.")]
+    [SerializeField, Min(0f)] float dashExitSpeed = 12.5f;
+
     [Header("Wall jump")]
     [Tooltip("Inclinação mínima para uma superfície contar como parede, em graus a partir do chão.")]
     [SerializeField, Range(45f, 89f)] float minWallAngle = 70f;
@@ -196,10 +214,22 @@ public class PlayerController : MonoBehaviour
     /// <summary>Disparado ao tocar o chão, com a velocidade da queda em m/s.</summary>
     public event System.Action<float> Landed;
 
+    /// <summary>Disparado ao começar um impulso no ar. Som e rastro escutam isto.</summary>
+    public event System.Action Dashed;
+
     public Vector3 HorizontalVelocity => _horizontalVelocity;
     public float VerticalVelocity => _verticalVelocity;
     public bool IsGrounded => _controller.isGrounded;
     public int AirJumpsUsed => _airJumpsUsed;
+
+    /// <summary>O impulso deste salto já foi gasto.</summary>
+    public bool DashUsed => _dashUsed;
+
+    /// <summary>Está no meio de um impulso agora.</summary>
+    public bool IsDashing => _dashTimer > 0f;
+
+    /// <summary>O impulso existe nesta fase.</summary>
+    public bool DashLiberado => dashLiberado;
 
     public PlayerMoveState State { get; private set; }
 
@@ -251,7 +281,10 @@ public class PlayerController : MonoBehaviour
     float _hopBonus;
     float _lastLandTime = -99f;
     float _lastJumpPressTime = -99f;
-    MovingPlatform _platform;
+    IPlataformaMovel _platform;
+    bool _dashUsed;
+    float _dashTimer;
+    Vector3 _dashDirection;
 
     void Awake()
     {
@@ -287,7 +320,13 @@ public class PlayerController : MonoBehaviour
         UpdateWallState(dt);
         UpdateStateTransitions();
 
-        if (State == PlayerMoveState.Slide)
+        TryStartDash();
+
+        if (_dashTimer > 0f)
+        {
+            UpdateDash(dt);
+        }
+        else if (State == PlayerMoveState.Slide)
         {
             UpdateSlide(dt);
         }
@@ -301,7 +340,7 @@ public class PlayerController : MonoBehaviour
         // já é a distância deste frame, e o CharacterController não carrega
         // ninguém sozinho.
         bool groundedBeforeMove = _controller.isGrounded;
-        Vector3 carry = _platform != null && groundedBeforeMove ? _platform.Delta : Vector3.zero;
+        Vector3 carry = _platform != null && groundedBeforeMove ? _platform.DeslocamentoEm(transform.position) : Vector3.zero;
         _controller.Move((_horizontalVelocity + Vector3.up * _verticalVelocity) * dt + carry);
 
         // Correndo ladeira abaixo também: sem isto, numa descida longa abaixo
@@ -320,12 +359,20 @@ public class PlayerController : MonoBehaviour
     /// devolver o pulo deixaria o jogador preso no mesmo beco.
     /// </summary>
     public void RestoreState(Vector3 horizontal, float vertical, int airJumpsUsed,
-                             PlayerMoveState state = PlayerMoveState.Normal, float hopBonus = 0f)
+                             PlayerMoveState state = PlayerMoveState.Normal, float hopBonus = 0f,
+                             bool dashUsed = false)
     {
         _horizontalVelocity = horizontal;
         _verticalVelocity = vertical;
         _airJumpsUsed = Mathf.Clamp(airJumpsUsed, 0, airJumps);
         _isJumping = vertical > 0f;
+
+        // O impulso volta junto pelo mesmo motivo do pulo duplo: o rewind
+        // desfaz o erro, inclusive o de ter gasto o impulso cedo demais. Um
+        // impulso em andamento é cancelado - retomá-lo no meio levaria a
+        // bruxa para onde ela não está mais olhando.
+        _dashUsed = dashUsed;
+        _dashTimer = 0f;
 
         State = state;
 
@@ -415,6 +462,7 @@ public class PlayerController : MonoBehaviour
             _isJumping = false;
             _airJumpsUsed = 0;
             _hasWallJumped = false;
+            _dashUsed = false;
 
             // Um empurrãozinho para baixo mantém o isGrounded estável em rampas
             // e degraus - sem isso o CharacterController fica piscando no ar.
@@ -715,7 +763,7 @@ public class PlayerController : MonoBehaviour
         // plataforma, que é o contrário do que o olho espera.
         if (!isAirJump && _platform != null && _controller.isGrounded)
         {
-            Vector3 platformSpeed = _platform.Velocity;
+            Vector3 platformSpeed = _platform.VelocidadeEm(transform.position);
             _horizontalVelocity += new Vector3(platformSpeed.x, 0f, platformSpeed.z);
         }
 
@@ -777,6 +825,52 @@ public class PlayerController : MonoBehaviour
         _hopBonus = 0f;
     }
 
+    // ------------------------------------------------------------------
+    // Impulso no ar
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Começa o impulso: só no ar, um por salto, e nunca no deslize.
+    ///
+    /// Um por salto é o que o mantém uma decisão. Recarrega ao tocar o chão,
+    /// uma bolha ou uma parede - os mesmos contatos que devolvem o pulo duplo,
+    /// para o jogador aprender uma regra só.
+    /// </summary>
+    void TryStartDash()
+    {
+        if (!dashLiberado || _dashUsed || _dashTimer > 0f) return;
+        if (_controller.isGrounded || State == PlayerMoveState.Slide) return;
+        if (!input.DashPressedThisFrame) return;
+
+        // Para onde o direcional aponta; parado, para onde ela olha.
+        Vector3 wish = CameraRelative(input.Move);
+        if (wish.sqrMagnitude < 0.01f) wish = Vector3.ProjectOnPlane(visual.forward, Vector3.up);
+        if (wish.sqrMagnitude < 0.0001f) return;
+
+        _dashDirection = wish.normalized;
+        _dashTimer = dashSeconds;
+        _dashUsed = true;
+        _isJumping = false;
+        IsWallSliding = false;
+
+        Dashed?.Invoke();
+    }
+
+    /// <summary>
+    /// Durante o impulso: reta, sem gravidade. Ao fim sobra um pouco mais que a
+    /// velocidade de corrida, e o controle no ar volta a valer normalmente.
+    /// </summary>
+    void UpdateDash(float dt)
+    {
+        _dashTimer -= dt;
+        _verticalVelocity = 0f;
+        _horizontalVelocity = _dashDirection * (_dashTimer > 0f ? dashSpeed : Mathf.Max(dashExitSpeed, moveSpeed));
+
+        if (_dashTimer <= 0f) _verticalVelocity = -0.5f;
+
+        UpdateFacing(dt);
+    }
+
     void WallJump()
     {
         _lastWallJumpNormal = _wallNormal;
@@ -796,6 +890,8 @@ public class PlayerController : MonoBehaviour
         // Sem devolver o pulo do ar, uma sequência de paredes viraria uma
         // escada de mão única: erra um salto e não sobra nada para corrigir.
         if (wallJumpRestoresAirJump) _airJumpsUsed = 0;
+        _dashUsed = false;
+        _dashTimer = 0f;
 
         Jumped?.Invoke(false);
         WallJumped?.Invoke();
@@ -823,6 +919,8 @@ public class PlayerController : MonoBehaviour
         _verticalVelocity = Mathf.Max(_verticalVelocity,
                                       Mathf.Sqrt(2f * gravity * Mathf.Max(0f, height)));
         _airJumpsUsed = 0;
+        _dashUsed = false;
+        _dashTimer = 0f;
 
         // A bolha conta como contato novo: libera a parede de onde já se saltou,
         // senão uma bolha ao lado de uma parede não ajudaria a subir por ela.
@@ -926,7 +1024,7 @@ public class PlayerController : MonoBehaviour
         _hasGround = true;
 
         // A mesma sonda que lê a inclinação diz em cima de quem a bruxa está.
-        _platform = hit.transform.GetComponentInParent<MovingPlatform>();
+        _platform = hit.transform.GetComponentInParent<IPlataformaMovel>();
     }
 
     /// <summary>

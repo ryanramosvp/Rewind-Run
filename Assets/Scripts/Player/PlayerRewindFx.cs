@@ -30,6 +30,9 @@ public class PlayerRewindFx : MonoBehaviour
     [SerializeField] Color rewindColor = new Color(0.35f, 0.78f, 1f, 1f);
     [SerializeField] Color resumeColor = new Color(1f, 0.78f, 0.32f, 1f);
 
+    [Tooltip("Cor do rastro do impulso no ar. Branco: não é tempo voltando, é só velocidade.")]
+    [SerializeField] Color dashColor = new Color(1f, 0.96f, 0.88f, 1f);
+
     [Header("Rastro")]
     [Tooltip("Intervalo entre ecos, em segundos.")]
     [SerializeField, Min(0.02f)] float ghostInterval = 0.09f;
@@ -83,6 +86,8 @@ public class PlayerRewindFx : MonoBehaviour
     float _sinceGhost;
     Vector3 _lastGhostPosition;
     int _nextGhost;
+    PlayerController _player;
+    float _sinceDashGhost;
 
     void Awake()
     {
@@ -107,6 +112,8 @@ public class PlayerRewindFx : MonoBehaviour
 
         for (int i = 0; i < maxGhosts; i++) _ghosts.Add(CreateGhost(i));
         for (int i = 0; i < _rings.Length; i++) _rings[i] = CreateRing(i);
+
+        _player = GetComponent<PlayerController>();
     }
 
     void OnDestroy()
@@ -129,6 +136,19 @@ public class PlayerRewindFx : MonoBehaviour
         if (rewinding && !_wasRewinding) OnBegin();
         else if (!rewinding && _wasRewinding) OnEnd();
         _wasRewinding = rewinding;
+
+        // Rastro do impulso: ecos brancos curtos, a cada poucos centímetros.
+        // Os mesmos ecos do rewind, em outra cor e muito mais breves - quem
+        // aprendeu a ler um lê o outro.
+        if (!rewinding && _player != null && _player.IsDashing)
+        {
+            _sinceDashGhost += dt;
+            if (_sinceDashGhost >= 0.04f)
+            {
+                SpawnGhost(dashColor, 0.28f, ghostAlpha * 0.7f);
+                _sinceDashGhost = 0f;
+            }
+        }
 
         if (rewinding)
         {

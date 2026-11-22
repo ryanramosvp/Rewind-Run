@@ -38,18 +38,24 @@ public class RotatingHazard : MonoBehaviour
     Quaternion _rest;
     Vector3 _axis;
     float _time;
+    RelogioLocal _clock;
 
     void Awake()
     {
         _rest = transform.localRotation;
         _axis = axis.sqrMagnitude < 0.0001f ? Vector3.up : axis.normalized;
+
+        // O relógio pode estar no pai: a peça que gira é o eixo, mas quem a
+        // zona mede é o poste, que não sai do lugar.
+        _clock = GetComponentInParent<RelogioLocal>();
     }
 
     void Update()
     {
         var manager = RewindManager.Instance;
 
-        if (manager != null && manager.IsRewinding) _time -= Time.deltaTime * manager.RewindSpeed;
+        if (_clock != null) _time = _clock.Tempo;
+        else if (manager != null && manager.IsRewinding) _time -= Time.deltaTime * manager.RewindSpeed;
         else _time += Time.deltaTime;
 
         float angle = phase * 360f + degreesPerSecond * _time;

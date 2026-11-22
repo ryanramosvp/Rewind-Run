@@ -176,19 +176,22 @@ public static class MenuSceneBuilder
         // Os botoes vivem num grupo proprio: as telas de controles e opcoes
         // escondem o grupo inteiro em vez de abrir por cima dele.
         var group = UiBuilder.CreateRect(root, "Botoes", new Vector2(0f, 0.5f),
-                                         new Vector2(420f, -150f), new Vector2(600f, 560f));
+                                         new Vector2(420f, -150f), new Vector2(600f, 600f));
 
-        var size = new Vector2(560f, 92f);
-        var newGame = ThemedUi.MenuButton(group, "NOVO JOGO", new Vector2(0f, 212f), size,
+        var size = new Vector2(560f, 86f);
+        var newGame = ThemedUi.MenuButton(group, "NOVO JOGO", new Vector2(0f, 240f), size,
                                           out var newGameSlot, out _);
-        var resume = ThemedUi.MenuButton(group, "CONTINUAR", new Vector2(0f, 106f), size,
+        var resume = ThemedUi.MenuButton(group, "CONTINUAR", new Vector2(0f, 144f), size,
                                          out var resumeSlot, out var resumeDetail, withDetail: true);
-        var levels = ThemedUi.MenuButton(group, "SELECIONAR FASE", new Vector2(0f, 0f), size,
+        var levels = ThemedUi.MenuButton(group, "SELECIONAR FASE", new Vector2(0f, 48f), size,
                                          out var levelsSlot, out _);
-        var settings = ThemedUi.MenuButton(group, "CONFIGURAÇÕES", new Vector2(0f, -106f), size,
+        var settings = ThemedUi.MenuButton(group, "CONFIGURAÇÕES", new Vector2(0f, -48f), size,
                                            out var settingsSlot, out _);
-        var quit = ThemedUi.MenuButton(group, "SAIR", new Vector2(0f, -212f), size,
+        var credits = ThemedUi.MenuButton(group, "CRÉDITOS", new Vector2(0f, -144f), size,
+                                          out var creditsSlot, out _);
+        var quit = ThemedUi.MenuButton(group, "SAIR", new Vector2(0f, -240f), size,
                                        out var quitSlot, out _);
+        UiBuilder.Bind(credits, menu, nameof(MainMenu.AbrirCreditos));
 
         UiBuilder.Bind(resume, menu, nameof(MainMenu.Continue));
         UiBuilder.Bind(levels, menu, nameof(MainMenu.OpenLevelSelect));
@@ -204,7 +207,7 @@ public static class MenuSceneBuilder
 
         var buttonsIntro = group.gameObject.AddComponent<UiIntroSequence>();
         EditorSetupUtil.SetReferences(buttonsIntro, "items",
-                                      new Object[] { newGameSlot, resumeSlot, levelsSlot, settingsSlot, quitSlot });
+                                      new Object[] { newGameSlot, resumeSlot, levelsSlot, settingsSlot, creditsSlot, quitSlot });
         LevelKit.SetFloat(buttonsIntro, "startDelay", 0.15f);
 
         ThemedUi.Text(root, "Dica", "SETAS / ANALÓGICO  navegar      ENTER / A  confirmar      ESC / B  voltar",
@@ -370,7 +373,8 @@ public static class MenuSceneBuilder
         ThemedUi.Backdrop(holder, Dim(theme, 0.94f));
 
         int count = Campaign.Levels.Length;
-        const float rowHeight = 100f, step = 114f;
+        // Seis fases cabem na tela de 1080 com o botão de voltar embaixo.
+        const float rowHeight = 90f, step = 102f;
         float cardHeight = ThemedUi.CardHeader + 20f + count * step + 24f;
 
         var card = ThemedUi.Card(holder, "Cartao", "SELECIONAR FASE", new Vector2(0f, 70f),
@@ -510,7 +514,10 @@ public static class MenuSceneBuilder
                             "Assets/Scenes/Level_TorreDeBolhas.unity",
                             VolcanoLevelBuilder.ScenePath,
                             RampLevelBuilder.ScenePath,
-                            ResultsSceneBuilder.ScenePath };
+                            RelojoariaLevelBuilder.ScenePath,
+                            CoracaoLevelBuilder.ScenePath,
+                            ResultsSceneBuilder.ScenePath,
+                            CreditsSceneBuilder.ScenePath };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
 
         foreach (var path in wanted)
