@@ -7,26 +7,38 @@ using UnityEngine.UI;
 using static VolcanicKit;
 
 /// <summary>
-/// Fase 6, a última: Coração do Tempo - a cratera do vulcão, com uma
-/// ampulheta gigante no meio e a areia subindo dentro dela.
+/// Fase 6, a última: Coração do Tempo - colapso temporal.
 ///
-/// É a fase que junta tudo. Começa fora da cratera, numa rampa de deslize
-/// com bolas cruzando; cai num patamar sobre a lava e atravessa por bolhas
-/// até a base da ampulheta. Dali sobe em espiral em volta dela:
-///  - um poço de vidro para subir pulando de parede em parede (com chão
-///    firme embaixo - errar custa segundos);
-///  - cristais frágeis que quebram logo depois de pisados;
-///  - um cristal de contratempo que sobe ao lado de um degrau alto;
-///  - a perseguição final: uma bola que sobe a rampa em hélice atrás da
-///    bruxa, freada no meio por uma zona de âmbar, e uma última fileira de
-///    cristais frágeis antes do cume.
+/// No centro da cratera, a ampulheta gigante solta de tempos em tempos uma
+/// onda que desmonta o cenário ao passar e o remonta ao voltar (ver
+/// <see cref="CicloDoColapso"/>). A bruxa não é afetada: quem muda é o
+/// mundo, e a fase é sobre ler a ampulheta e usar o cenário enquanto ele se
+/// desfaz.
 ///
-/// No cume não há bandeira: tocar o altar começa o encerramento da campanha
-/// (<see cref="FimDaCampanha"/>) - a câmera se afasta, a ampulheta vira, o
-/// coro entra, a tela clareia e vêm os resultados.
+/// Quase todo o percurso é feito de fragmentos: a onda os tira do lugar -
+/// uns sobem, os vizinhos descem, escorregam de lado e tombam um pouco - e
+/// o caminho continua passável em qualquer momento do ciclo. A onda é um
+/// dificultador, não uma porta: num jogo de tempo, ninguém precisa esperá-la.
 ///
-/// A câmera olha de fora para dentro da ampulheta (<see cref="RadialCameraFraming"/>),
-/// como no tutorial: na espiral, a bruxa fica sempre entre a câmera e a torre.
+/// O percurso dá uma volta em torno dela, de fora para dentro e para cima:
+///  1. Primeira região (sul): uma linha de lajes até o centro, subindo.
+///  2. Região intermediária (leste): uma torre que já é escada de blocos
+///     soltos, uma laje inclinada que a onda inclina mais, e um poço de
+///     paredes inteiras para subir pulando de uma para a outra.
+///  3. Região superior: o Observatório, de onde se vê a ampulheta inteira.
+///  4. Região externa (norte): lajes que se afastam umas das outras com a
+///     onda e um vão de impulso (que a onda encurta).
+///  5. Sequência final: uma ponte de peças descendo da Torre do Fim até o
+///     núcleo, a mais agitada de todas quando a onda passa.
+/// Tocar a ilha do núcleo para o ciclo e começa o encerramento da campanha.
+///
+/// Sem textos de explicação: a fase ensina pelo desenho, à vista da
+/// ampulheta. Os pontos de controle ficam em chão fixo, para nunca se
+/// renascer numa peça solta.
+///
+/// Cada peça que se mexe é um <see cref="FragmentoTemporal"/> com pose
+/// calculada a partir do tempo do ciclo, então o rewind devolve tudo ao
+/// lugar exato. Nada é criado nem destruído durante o jogo.
 /// </summary>
 public static class CoracaoLevelBuilder
 {
@@ -35,17 +47,19 @@ public static class CoracaoLevelBuilder
     public const string Musica = "Musica/sinfonia4_tchaikovsky.mp3";
     public const string MusicaFinal = "Musica/amen_scarlatti.mp3";
 
-    // Provisórios: rampa, travessia e uma volta e meia de espiral.
-    static readonly float[] kRanks = { 55f, 68f, 85f, 110f, 150f };
+    // Provisórios: ~350 m de percurso sem esperas, mais o poço. Recalibrar
+    // lendo o save depois de jogar.
+    static readonly float[] kRanks = { 60f, 72f, 90f, 115f, 155f };
 
-    /// <summary>Centro da ampulheta, no nível da lava.</summary>
+    /// <summary>Centro da cratera, no nível da lava.</summary>
     static readonly Vector3 O = new Vector3(0f, 0f, 40f);
-    const float R = 20f;               // raio da espiral
-    const float kMeioDaAmpulheta = 24f;
+    const float kMeioDaAmpulheta = 34f;
     const float kMeiaAltura = 20f;
+    const float kIlhaDoNucleo = 12f;     // topo da ilha central
+    const float kRaioDaIlha = 20f;
 
-    const float kTopoDaLargada = 34f;
-    const float kQuedaDaRampa = 22f;
+    // Alturas dos trechos.
+    const float H1 = 14f, H2 = 21f;
 
     [MenuItem("Rewind Run/Criar Fase 6: Coração do Tempo", priority = 12)]
     public static void Build()
@@ -59,24 +73,26 @@ public static class CoracaoLevelBuilder
         CriarAtmosfera();
 
         var level = new GameObject("Fase").transform;
-        CriarRampa(Group(level, "1_Rampa"));
-        CriarTravessia(Group(level, "2_Travessia"));
-        CriarPoco(Group(level, "3_PocoDeVidro"));
-        CriarCristais(Group(level, "4_Cristais"));
-        CriarPerseguicao(Group(level, "5_Perseguicao"));
-        var ampulheta = CriarAmpulheta(Group(level, "Ampulheta"));
+        var ciclo = CriarCiclo(level);
+        CriarPrimeiraRegiao(Group(level, "1_PrimeiraRegiao"));
+        CriarRegiaoIntermediaria(Group(level, "2_RegiaoIntermediaria"));
+        CriarRegiaoExterna(Group(level, "3_RegiaoExterna"));
+        CriarPonteFinal(Group(level, "4_PonteFinal"));
+        var ampulheta = CriarAmpulheta(Group(level, "Ampulheta"), ciclo);
+        CriarDestrocos(Group(level, "Destrocos"));
         CriarCratera(Group(level, "Cratera"));
 
         var player = LevelKit.AssembleSystems(kRanks, ResultsSceneBuilder.SceneName, "ver resultados");
         TempoKit.LiberarImpulso(player);
         LevelKit.CreateMusic(Musica);
-        var largada = new Vector3(0f, kTopoDaLargada + 0.3f, -104f);
+        var largada = P(0f, 95f, H1 + 0.3f);
         if (player != null) player.transform.SetPositionAndRotation(largada, Quaternion.identity);
 
-        CriarCume(Group(level, "6_Cume"), ampulheta);
+        CriarNucleo(Group(level, "5_Nucleo"), ampulheta);
         CriarCamera(player, largada);
 
-        HazardSetup.EnsureLava(new Vector3(0f, 0f, -10f), 360f, 380f, surfaceHeight: 0f);
+        TempoKit.Vazio(level, new Vector3(O.x, 5f, O.z), new Vector3(280f, 4f, 280f));
+        HazardSetup.EnsureLava(new Vector3(O.x, 0f, O.z), 360f, 360f, surfaceHeight: 0f);
         HazardSetup.EnsureRespawn();
 
         System.IO.Directory.CreateDirectory("Assets/Scenes");
@@ -88,7 +104,7 @@ public static class CoracaoLevelBuilder
     }
 
     // ------------------------------------------------------------------
-    // Espiral: posições em volta da ampulheta
+    // Geometria em volta da ampulheta
     // ------------------------------------------------------------------
 
     /// <summary>Ponto no ângulo <paramref name="graus"/> (0 ao sul, crescendo para o leste).</summary>
@@ -98,253 +114,227 @@ public static class CoracaoLevelBuilder
         return new Vector3(O.x + raio * Mathf.Sin(a), y, O.z - raio * Mathf.Cos(a));
     }
 
-    /// <summary>Giro que põe o Z local na tangente da espiral e o X local para fora.</summary>
+    /// <summary>Direção de quem anda em volta do centro, no sentido em que o ângulo cresce.</summary>
+    static Vector3 Tangente(float graus)
+    {
+        float a = graus * Mathf.Deg2Rad;
+        return new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+    }
+
+    /// <summary>Direção para fora, a partir do centro.</summary>
+    static Vector3 ParaFora(float graus)
+    {
+        float a = graus * Mathf.Deg2Rad;
+        return new Vector3(Mathf.Sin(a), 0f, -Mathf.Cos(a));
+    }
+
+    /// <summary>Giro que põe o Z local na tangente e o X local para fora.</summary>
     static float Rumo(float graus) => 90f - graus;
 
-    /// <summary>Placa na espiral: <paramref name="radial"/> de largura, <paramref name="tangente"/> de comprimento.</summary>
-    static GameObject Placa(Transform root, string name, float graus, float y, float radial, float tangente)
+    /// <summary>Giro que põe o Z local apontando para o centro.</summary>
+    static float RumoParaDentro(float graus) => -graus;
+
+    /// <summary>Placa fixa: <paramref name="radial"/> de largura, <paramref name="tangente"/> de comprimento.</summary>
+    static GameObject Placa(Transform root, string name, Vector3 topo, float graus, float radial, float tangente)
     {
-        var p = P(graus, R, y);
-        return Plate(root, name, p.x, p.z, y, radial, tangente, Rumo(graus), TempoKit.Bronze, trim: false, supports: false);
-    }
-
-    // ------------------------------------------------------------------
-    // Trechos
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Largada fora da cratera e a rampa até a beira: duas bolas cruzam a
-    /// pista de lado, num ritmo, e o deslize só deixa desviar ou pular.
-    /// Elas vêm de lado, e não de trás, para serem vistas a tempo.
-    /// </summary>
-    static void CriarRampa(Transform root)
-    {
-        TempoKit.Placa(root, "Largada", new Vector3(0f, kTopoDaLargada, -102f), 12f, 10f);
-        Ramp(root, "Rampa", new Vector3(0f, kTopoDaLargada, -97f), 10f, kQuedaDaRampa, 0f);
-
-        float entrada = kRampEntry * Mathf.Tan(kRampEntryAngle * Mathf.Deg2Rad);
-        float AlturaNa(float s) => kTopoDaLargada - (s < kRampEntry ? s * Mathf.Tan(kRampEntryAngle * Mathf.Deg2Rad)
-                                                         : entrada + (s - kRampEntry) * Mathf.Tan(kRampAngle * Mathf.Deg2Rad));
-
-        foreach (var (s, fase) in new[] { (11f, 0f), (23f, 0.5f) })
-        {
-            float y = AlturaNa(s) + 1.5f;
-            float z = -97f + s;
-            var caminho = new List<Vector3> { new Vector3(-10f, y, z), new Vector3(10f, y, z), new Vector3(13f, -3f, z) };
-            var bola = RampLevelBuilder.Boulder(root, $"Bola_Cruzada{(fase > 0f ? 2 : 1)}", caminho, 1.5f, 13f, 0f, 13f,
-                                                true, 2.8f, fase, default);
-            var relogio = bola.AddComponent<RelogioLocal>();
-            TempoKit.SetEnum(relogio, "canal", (int)CanalTemporal.Bolas);
-
-            // Bocas de pedra de onde a bola sai e para onde ela cai.
-            Decor(root, "Boca", LowPolyMesh.Prism(LowPolyMesh.Regular(6, 2.6f), kBedrock - y, 1.2f, 3f, 0.8f),
-                  LavaLetalArt.RockBurnt, new Vector3(-11.5f, y - 1.5f, z));
-        }
-
-        Plate(root, "Pouso", 0f, -51f, 9f, 12f, 18f, 0f, LavaLetalArt.Metal, trim: true, supports: true);
-        TempoKit.PontoDeControle(root, "PontoDeControle1", new Vector3(0f, 9f, -46f), 0f);
-
-        var zona = KayKitPlacer.CreateCameraZone(root, "Zona_Rampa",
-                                                 new Bounds(new Vector3(0f, 26f, -82f), new Vector3(16f, 24f, 46f)),
-                                                 0f, 48f, 20f);
-        zona.name = "Zona_Rampa";
-    }
-
-    /// <summary>
-    /// Três bolhas sobre a lava até a base da ampulheta. Na segunda ilha um
-    /// pêndulo atravessa o pouso, dentro de uma zona que o deixa lento.
-    /// </summary>
-    static void CriarTravessia(Transform root)
-    {
-        Bubble(root, "Bolha1", new Vector3(0f, 12f, -36.5f), 0f);
-        Rock(root, "Ilha1", 0f, -23.5f, 9f, 2.6f, 9, 61, LavaLetalArt.RockBrown);
-        Bubble(root, "Bolha2", new Vector3(0f, 12f, -15.5f), 0.3f);
-        Rock(root, "Ilha2", 0f, -3f, 9f, 3.6f, 10, 62, LavaLetalArt.RockBrown);
-        TempoKit.Pendulo(root, "Pendulo_Ilha2", new Vector3(0f, 9f + 8.5f, -3f), 7.3f, 55f, 2.4f, 0.25f);
-        TempoKit.Zona(root, "Zona_Ilha2", new Vector3(0f, 13f, -3f), 6f, 0.3f, CanalTemporal.Obstaculos);
-        Bubble(root, "Bolha3", new Vector3(0f, 12f, 6f), 0.6f);
-
-        Placa(root, "Base", 0f, 9f, 8f, 10f);
-        TempoKit.PontoDeControle(root, "PontoDeControle2", P(0f, R, 9f) + Vector3.right * 2.5f, Rumo(0f));
-    }
-
-    /// <summary>
-    /// Poço de vidro: duas paredes paralelas a 4,5 m, dez metros de altura,
-    /// chão firme embaixo. Sobe-se pulando de uma para a outra; no alto, um
-    /// patamar logo adiante.
-    /// </summary>
-    static void CriarPoco(Transform root)
-    {
-        const float graus = 38f, chao = 9f, topo = 19.5f;
-        Placa(root, "ChaoDoPoco", graus, chao, 4.5f, 6f);
-
-        TempoKit.Aviso(root, "Aviso_Poco", new Bounds(P(graus, R, chao + 2f), new Vector3(7f, 4f, 7f)),
-                       "Entre duas paredes: pule de uma para a outra para subir.", null, 5f);
-
-        foreach (float raio in new[] { R - 2.5f, R + 2.5f })
-        {
-            var p = P(graus, raio, chao);
-            var parede = Solid(root, "ParedeDeVidro", LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.5f, 6f), 0f, topo - chao, 2f),
-                               TempoKit.Vidro, TempoKit.Vidro, p, Rumo(graus));
-            parede.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
-            var box = parede.AddComponent<BoxCollider>();
-            box.center = new Vector3(0f, (topo - chao) * 0.5f, 0f);
-            box.size = new Vector3(0.5f, topo - chao, 6f);
-
-            // Moldura de bronze: o vidro sozinho quase não se vê.
-            foreach (float lado in new[] { -3f, 3f })
-                Decor(parede.transform, "Coluna", LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.6f, 0.4f), 0f, topo - chao + 0.3f, 1f),
-                      TempoKit.Bronze, new Vector3(0f, 0f, lado));
-            Decor(parede.transform, "Travessa", LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.6f, 6.4f), topo - chao, topo - chao + 0.3f, 1f),
-                  TempoKit.Bronze, Vector3.zero);
-        }
-
-        Placa(root, "TopoDoPoco", 56f, 18f, 5f, 5f);
-        TempoKit.PontoDeControle(root, "PontoDeControle3", P(58f, R, 18f), Rumo(58f));
-    }
-
-    /// <summary>
-    /// Quatro cristais frágeis subindo a espiral e, num degrau, um cristal de
-    /// contratempo que sobe três metros até a varanda.
-    /// </summary>
-    static void CriarCristais(Transform root)
-    {
-        TempoKit.Aviso(root, "Aviso_Fragil", new Bounds(P(60f, R, 19.5f), new Vector3(6f, 4f, 6f)),
-                       "Cristais rosa quebram logo depois de pisados. Não pare - ou volte no tempo.", null, 5f);
-
-        float[] graus = { 72f, 87f, 102f, 117f };
-        for (int i = 0; i < graus.Length; i++)
-        {
-            var p = P(graus[i], R, 19f + i);
-            TempoKit.Fragil(root, $"Fragil{i + 1}", p, 3f, 3f, Rumo(graus[i]));
-        }
-
-        Placa(root, "Degrau", 136f, 22f, 5f, 5f);
-        TempoKit.Contratempo(root, "Cristal1", P(148f, R, 22f), 3f, 3f, new Vector3(0f, 3f, 0f), 1.2f, Rumo(148f));
-
-        TempoKit.Aviso(root, "Aviso_Cristal", new Bounds(P(136f, R, 23.5f), new Vector3(6f, 4f, 6f)),
-                       "Alto demais? Volte no tempo e o cristal azul sobe.", null, 4f);
-
-        Placa(root, "Varanda", 165f, 28f, 6f, 6f);
-        TempoKit.PontoDeControle(root, "PontoDeControle4", P(162f, R, 28f), Rumo(162f));
-    }
-
-    const float kHeliceInicio = 174f, kHeliceFim = 290f, kHeliceY0 = 28f, kHeliceY1 = 41f;
-
-    /// <summary>
-    /// A perseguição: rampa em hélice de 40 m subindo 13, uma bola rolando
-    /// atrás da bruxa e uma zona de âmbar no meio que a freia. No fim, três
-    /// cristais frágeis sobre o vazio; a bola segue reto e cai.
-    /// </summary>
-    static void CriarPerseguicao(Transform root)
-    {
-        var malha = TempoKit.MalhaHelice(O, R, 5f, kHeliceInicio, kHeliceFim, kHeliceY0, kHeliceY1, 0.8f, "Helice");
-        var helice = Solid(root, "RampaEmHelice", malha, TempoKit.Bronze, TempoKit.BronzeEscuro, Vector3.zero, 0f);
-        helice.AddComponent<MeshCollider>().sharedMesh = malha;
-
-        // Para a validação: o começo e o fim da rampa como placas.
-        RegistrarTrecho("HeliceInicio", kHeliceInicio, kHeliceInicio + 6f, kHeliceY0);
-        RegistrarTrecho("HeliceFim", kHeliceFim - 6f, kHeliceFim, kHeliceY1);
-
-        float meio = (kHeliceInicio + kHeliceFim) * 0.5f;
-        TempoKit.Zona(root, "Zona_Perseguicao", P(meio, R, (kHeliceY0 + kHeliceY1) * 0.5f + 1.5f), 6.5f, 0.35f,
-                      CanalTemporal.Bolas);
-
-        const float r = 1.6f;
-        var caminho = new List<Vector3> { P(160f, 26f, 31f), P(168f, 23f, kHeliceY0 + r) };
-        for (float g = kHeliceInicio; g <= kHeliceFim + 0.01f; g += 6f)
-            caminho.Add(P(g, R, Mathf.Lerp(kHeliceY0, kHeliceY1, (g - kHeliceInicio) / (kHeliceFim - kHeliceInicio)) + r));
-        float a = kHeliceFim * Mathf.Deg2Rad;
-        var tangente = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-        var fim = P(kHeliceFim, R, kHeliceY1 + r);
-        caminho.Add(fim + tangente * 5f);
-        caminho.Add(fim + tangente * 9f + Vector3.down * 18f);
-
-        var gatilho = new Bounds(P(kHeliceInicio + 5f, R, kHeliceY0 + 2f), new Vector3(8f, 6f, 8f));
-        var bola = RampLevelBuilder.Boulder(root, "Bola_Perseguicao", caminho, r, 6f, 2.5f, 10.5f, false, 0f, 0f, gatilho);
-        var relogio = bola.AddComponent<RelogioLocal>();
-        TempoKit.SetEnum(relogio, "canal", (int)CanalTemporal.Bolas);
-        Decor(root, "Poleiro", LowPolyMesh.Prism(LowPolyMesh.Regular(6, 1.8f), -8f, 0f, 3f, 0.7f),
-              LavaLetalArt.RockBurnt, P(160f, 26f, 31f - r));
-
-        float[] graus = { 300f, 313f, 326f };
-        for (int i = 0; i < graus.Length; i++)
-        {
-            var p = P(graus[i], R, kHeliceY1);
-            TempoKit.Fragil(root, $"FragilFinal{i + 1}", p, 3f, 3f, Rumo(graus[i]));
-        }
-    }
-
-    static void RegistrarTrecho(string name, float g0, float g1, float y)
-    {
-        Register(name, y, new[]
-        {
-            Xz(P(g0, R - 2.5f, y)), Xz(P(g0, R + 2.5f, y)), Xz(P(g1, R + 2.5f, y)), Xz(P(g1, R - 2.5f, y)),
-        });
+        return Plate(root, name, topo.x, topo.z, topo.y, radial, tangente, Rumo(graus), TempoKit.Bronze,
+                     trim: false, supports: false);
     }
 
     static Vector2 Xz(Vector3 v) => new Vector2(v.x, v.z);
 
     /// <summary>
-    /// O cume e o encerramento: um altar com uma ampulheta pequena; tocá-lo
-    /// dispara o <see cref="FimDaCampanha"/>, que vira a ampulheta gigante.
+    /// Fragmento com chão: uma laje que a onda move. <paramref name="topo"/> é
+    /// a pose inteira (pivô no meio do tampo); a solta é ela mais
+    /// <paramref name="deslocamento"/> e <paramref name="giro"/>.
+    /// <paramref name="registrar"/> diz em qual pose a laje entra na
+    /// validação dos saltos: a inteira, a solta, ou as duas (null).
     /// </summary>
-    static void CriarCume(Transform root, Transform ampulheta)
+    static GameObject Fragmento(Transform root, string name, Vector3 topo, float yaw, float x, float z,
+                                Vector3 deslocamento, Vector3 giro, bool? registrarSolta, float balanco = 0.08f,
+                                float inclinacaoInicial = 0f, Material tampo = null, float espessura = 0.9f)
     {
-        const float graus = 345f, y = 42f;
-        Placa(root, "Cume", graus, y, 8f, 8f);
-        var altar = P(graus, R, y);
-        Decor(root, "Altar", LowPolyMesh.Prism(LowPolyMesh.Regular(8, 1.3f, 22.5f), 0f, 1f, 1f, 0.8f), TempoKit.BronzeEscuro, altar);
-        var pequena = new GameObject("AmpulhetaDoAltar");
-        pequena.transform.SetParent(root, false);
-        pequena.transform.localPosition = altar + Vector3.up * 2.1f;
-        TempoKit.MontarAmpulheta(pequena.transform, 0.9f);
-
-        // Clarão branco por cima de tudo, transparente até o fim da sequência.
-        var canvas = UiBuilder.CreateCanvas("Clarao", sortOrder: 60);
-        var imagem = new GameObject("Branco").AddComponent<Image>();
-        imagem.transform.SetParent(canvas.transform, false);
-        var rect = imagem.rectTransform;
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        imagem.color = new Color(1f, 1f, 1f, 0f);
-        imagem.raycastTarget = false;
-
-        var go = new GameObject("FimDaCampanha");
+        var go = new GameObject(name);
         go.transform.SetParent(root, false);
-        go.transform.position = altar + Vector3.up * 1.5f;
-        var area = go.AddComponent<BoxCollider>();
-        area.isTrigger = true;
-        area.size = new Vector3(5f, 4f, 5f);
+        go.transform.SetPositionAndRotation(topo, Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(inclinacaoInicial, 0f, 0f));
 
-        var fimDaCampanha = go.AddComponent<FimDaCampanha>();
-        EditorSetupUtil.SetReference(fimDaCampanha, "ampulheta", ampulheta);
-        EditorSetupUtil.SetReference(fimDaCampanha, "foco", ampulheta);
-        EditorSetupUtil.SetReference(fimDaCampanha, "musicaFinal", LevelKit.MusicClip(MusicaFinal));
-        EditorSetupUtil.SetReference(fimDaCampanha, "clarao", imagem);
-        EditorSetupUtil.SetReference(fimDaCampanha, "volumeRewind", Object.FindAnyObjectByType<Volume>());
-        EditorSetupUtil.SetString(fimDaCampanha, "cenaDosCreditos", CreditsSceneBuilder.SceneName);
-        EditorSetupUtil.SetString(fimDaCampanha, "cenaDeResultados", ResultsSceneBuilder.SceneName);
-        LevelKit.SetFloat(fimDaCampanha, "subida", 30f);
-        LevelKit.SetFloat(fimDaCampanha, "afastamento", 70f);
+        var laje = Solid(go.transform, "Laje", LowPolyMesh.Prism(LowPolyMesh.Rectangle(x, z), -espessura, 0f, LavaLetalArt.MetalTile),
+                         tampo != null ? tampo : TempoKit.Bronze, TempoKit.BronzeEscuro, Vector3.zero, 0f);
+        GameObjectUtility.SetStaticEditorFlags(laje, 0);
+        var box = laje.AddComponent<BoxCollider>();
+        box.center = new Vector3(0f, -espessura * 0.5f, 0f);
+        box.size = new Vector3(x, espessura, z);
+
+        var rachaduras = Rachaduras(go.transform, x, z, name);
+        LevelKit.AddKinematicBody(go);
+
+        var fragmento = go.AddComponent<FragmentoTemporal>();
+        LevelKit.SetVector(fragmento, "deslocamento", deslocamento);
+        LevelKit.SetVector(fragmento, "giro", giro);
+        LevelKit.SetFloat(fragmento, "balanco", balanco);
+        EditorSetupUtil.SetReferences(fragmento, "rachaduras", rachaduras);
+
+        var retangulo = LowPolyMesh.Rectangle(x, z);
+        var inteira = new Vector2[4];
+        var solta = new Vector2[4];
+        var rotacaoInteira = Quaternion.Euler(0f, yaw, 0f);
+        for (int i = 0; i < 4; i++)
+        {
+            var p = rotacaoInteira * new Vector3(retangulo[i].x, 0f, retangulo[i].y);
+            inteira[i] = Xz(topo + p);
+            solta[i] = Xz(topo + p + deslocamento);
+        }
+
+        if (registrarSolta == true) Register(name, topo.y + deslocamento.y, solta);
+        else
+        {
+            Register(name, topo.y, inteira);
+            if (registrarSolta == null) FarEnds[name] = (topo.y + deslocamento.y, solta);
+        }
+
+        return go;
+    }
+
+    /// <summary>Riscos finos no tampo, que acendem antes da peça se soltar.</summary>
+    static Renderer[] Rachaduras(Transform pai, float x, float z, string semente)
+    {
+        int s = 17;
+        foreach (char c in semente) s = s * 31 + c;
+        var random = new System.Random(s & 0x7fffffff);
+
+        var lista = new List<Renderer>();
+        for (int i = 0; i < 3; i++)
+        {
+            float comprimento = Mathf.Min(x, z) * (0.5f + 0.4f * (float)random.NextDouble());
+            var risco = LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.14f, comprimento), 0f, 0.03f, 1f);
+            var posicao = new Vector3(((float)random.NextDouble() - 0.5f) * x * 0.5f, 0.005f,
+                                      ((float)random.NextDouble() - 0.5f) * z * 0.5f);
+            var go = Solid(pai, "Rachadura", risco, TempoKit.Rachadura, TempoKit.Rachadura, posicao,
+                           (float)random.NextDouble() * 180f);
+            GameObjectUtility.SetStaticEditorFlags(go, 0);
+            var r = go.GetComponent<MeshRenderer>();
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            lista.Add(r);
+        }
+
+        return lista.ToArray();
+    }
+
+    // ------------------------------------------------------------------
+    // Ciclo e ampulheta
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// O ciclo e a imagem da onda moram num objeto próprio no meio da
+    /// ampulheta, e não nela: no fim a ampulheta vira, e a onda não pode
+    /// virar junto.
+    /// </summary>
+    static CicloDoColapso CriarCiclo(Transform root)
+    {
+        var go = new GameObject("CicloDoColapso");
+        go.transform.SetParent(root, false);
+        go.transform.position = O + Vector3.up * kMeioDaAmpulheta;
+
+        var som = go.AddComponent<AudioSource>();
+        som.playOnAwake = false;
+        som.spatialBlend = 0.35f;
+        som.minDistance = 40f;
+        som.maxDistance = 220f;
+        som.rolloffMode = AudioRolloffMode.Linear;
+
+        var ciclo = go.AddComponent<CicloDoColapso>();
+        EditorSetupUtil.SetReference(ciclo, "som", som);
+
+        // Casca: a esfera da onda.
+        var casca = new GameObject("Casca");
+        casca.transform.SetParent(go.transform, false);
+        casca.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
+        var cascaRenderer = casca.AddComponent<MeshRenderer>();
+        cascaRenderer.sharedMaterial = TempoKit.CascaDaOnda;
+        cascaRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        cascaRenderer.receiveShadows = false;
+
+        // Anéis onde a esfera corta as alturas em que se joga.
+        float[] alturas = { H1 - kMeioDaAmpulheta, H2 - kMeioDaAmpulheta, 0f, 13f };
+        var aneis = new Transform[alturas.Length];
+        var malha = TempoKit.MalhaAnel(1f, 0.012f, 96);
+        for (int i = 0; i < alturas.Length; i++)
+        {
+            var anel = new GameObject("Anel");
+            anel.transform.SetParent(go.transform, false);
+            anel.AddComponent<MeshFilter>().sharedMesh = malha;
+            var r = anel.AddComponent<MeshRenderer>();
+            r.sharedMaterial = TempoKit.AnelDaOnda;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            aneis[i] = anel.transform;
+        }
+
+        // Partículas na superfície da esfera.
+        var particulas = new GameObject("Particulas");
+        particulas.transform.SetParent(go.transform, false);
+        var ps = particulas.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.loop = true;
+        main.startLifetime = 1.6f;
+        main.startSpeed = 2.5f;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.7f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.6f, 0.9f, 1f, 0.9f), new Color(1f, 0.82f, 0.4f, 0.9f));
+        main.maxParticles = 1500;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var emissao = ps.emission;
+        emissao.rateOverTime = 0f;
+        var forma = ps.shape;
+        forma.shapeType = ParticleSystemShapeType.Sphere;
+        forma.radius = 1f;
+        forma.radiusThickness = 0f;
+        var cor = ps.colorOverLifetime;
+        cor.enabled = true;
+        var degrade = new Gradient();
+        degrade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                        new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) });
+        cor.color = degrade;
+        var psRenderer = particulas.GetComponent<ParticleSystemRenderer>();
+        psRenderer.sharedMaterial = TempoKit.Particula;
+        psRenderer.shadowCastingMode = ShadowCastingMode.Off;
+
+        // Luz do núcleo: acende com a carga.
+        var luz = new GameObject("LuzDoNucleo").AddComponent<Light>();
+        luz.transform.SetParent(go.transform, false);
+        luz.type = LightType.Point;
+        luz.range = 60f;
+        luz.color = new Color(0.65f, 0.88f, 1f);
+        luz.intensity = 0f;
+        luz.shadows = LightShadows.None;
+
+        var visual = go.AddComponent<VisualDaOnda>();
+        EditorSetupUtil.SetReference(visual, "casca", casca.transform);
+        EditorSetupUtil.SetReferences(visual, "aneis", aneis);
+        EditorSetupUtil.SetFloats(visual, "alturasDosAneis", alturas);
+        EditorSetupUtil.SetReference(visual, "particulas", ps);
+        EditorSetupUtil.SetReference(visual, "luz", luz);
+        return ciclo;
     }
 
     /// <summary>
-    /// A ampulheta gigante: o pivô fica no meio dela, que é onde ela gira no
-    /// fim. A areia sobe - é o tempo andando para trás - em partículas que
-    /// vivem no espaço da própria ampulheta e viram junto com ela.
+    /// A ampulheta gigante, sobre a ilha do núcleo. O pivô fica no meio dela,
+    /// que é onde ela gira no fim. Um núcleo aceso no gargalo pulsa com a
+    /// carga do ciclo; a areia sobe por dentro.
     /// </summary>
-    static Transform CriarAmpulheta(Transform root)
+    static Transform CriarAmpulheta(Transform root, CicloDoColapso ciclo)
     {
-        Decor(root, "Pedestal", LowPolyMesh.Prism(LowPolyMesh.Regular(12, 15f), kBedrock, kMeioDaAmpulheta - kMeiaAltura * 1.1f,
-                                                 LavaLetalArt.RockTile, 0.85f), LavaLetalArt.RockBurnt, O);
-
         var pivo = new GameObject("AmpulhetaGigante").transform;
         pivo.SetParent(root, false);
         pivo.localPosition = O + Vector3.up * kMeioDaAmpulheta;
         TempoKit.MontarAmpulheta(pivo, kMeiaAltura);
+
+        var nucleo = new GameObject("Nucleo");
+        nucleo.transform.SetParent(pivo, false);
+        nucleo.transform.localScale = Vector3.one * 4.5f;
+        nucleo.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
+        var nucleoRenderer = nucleo.AddComponent<MeshRenderer>();
+        nucleoRenderer.sharedMaterial = TempoKit.Areia;
+        nucleoRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        EditorSetupUtil.SetReference(ciclo.GetComponent<VisualDaOnda>(), "nucleo", nucleoRenderer);
 
         var areia = new GameObject("AreiaSubindo");
         areia.transform.SetParent(pivo, false);
@@ -375,20 +365,307 @@ public static class CoracaoLevelBuilder
         return pivo;
     }
 
+    // ------------------------------------------------------------------
+    // Regiões
+    // ------------------------------------------------------------------
+
     /// <summary>
-    /// A borda da cratera: rochas altas em anel, abertas no sul, onde a rampa
-    /// entra. Longe da rota e sem colisão no caminho de ninguém.
+    /// Peça de percurso que a onda tira do lugar: sobe ou desce, escorrega de
+    /// lado e tomba um pouco. As vizinhas vão para lados opostos
+    /// (<paramref name="indice"/> par ou ímpar), e é isso que faz o caminho
+    /// "trocar de lugar" - mas os deslocamentos são pequenos de propósito:
+    /// o caminho continua passável parado, solto e no meio do movimento. A
+    /// onda dificulta; nunca obriga a esperar.
     /// </summary>
+    /// <param name="caminho">Direção em que se anda ali. O escorregão é de lado a ela, para não abrir o vão do salto.</param>
+    static GameObject Peca(Transform root, string name, Vector3 topo, float yaw, float x, float z, Vector3 caminho,
+                           int indice, float forca = 1f, Material tampo = null, float espessura = 0.9f)
+    {
+        bool par = indice % 2 == 0;
+        var lado = Vector3.Cross(Vector3.up, caminho.normalized);
+        var deslocamento = Vector3.up * ((par ? 1.6f : -0.8f) * forca) + lado * ((par ? 1.5f : -1.5f) * forca);
+        var giro = new Vector3(0f, 0f, (par ? 6f : -6f) * forca);
+        return Fragmento(root, name, topo, yaw, x, z, deslocamento, giro, registrarSolta: null,
+                         balanco: 0.12f * forca, tampo: tampo, espessura: espessura);
+    }
+
+    /// <summary>
+    /// Primeira região, em linha reta para o centro e subindo devagar. Tudo
+    /// nela flutua com a onda, uma peça para cima e a seguinte para baixo;
+    /// os vãos são curtos para fechar em qualquer combinação.
+    /// </summary>
+    static void CriarPrimeiraRegiao(Transform root)
+    {
+        var dentro = -ParaFora(0f);
+        float rumo = Rumo(0f);
+
+        Placa(root, "Largada", P(0f, 95f, H1), 0f, 10f, 10f);
+        Peca(root, "Entrada", P(0f, 82f, H1), rumo, 12f, 8f, dentro, 0, 0.6f);
+        Peca(root, "Laje1", P(0f, 71.5f, H1 + 0.5f), rumo, 5f, 6f, dentro, 1);
+        Peca(root, "Laje2", P(0f, 65f, H1 + 1f), rumo, 5f, 6f, dentro, 2);
+        Peca(root, "Margem", P(0f, 56f, H1 + 1.5f), rumo, 10f, 10f, dentro, 3, 0.8f);
+        Peca(root, "Degrau1", P(0f, 47f, H1 + 3f), rumo, 4f, 4f, dentro, 4);
+        Peca(root, "Degrau2", P(0f, 42f, H1 + 4.8f), rumo, 4f, 4f, dentro, 5);
+
+        // Ponto de controle sempre em chão fixo: renascer numa peça solta
+        // poria a bruxa no ar.
+        Placa(root, "Degrau", P(0f, 35.5f, H2 - 0.5f), 0f, 6f, 8f);
+        TempoKit.PontoDeControle(root, "PontoDeControle1", P(0f, 35.5f, H2 - 0.5f), Rumo(0f));
+    }
+
+    // Torre, rampa e poço: tudo alinhado numa reta que sai da torre na
+    // direção da tangente a 36 graus.
+    const float kGrausDaTorre = 36f;
+    static Vector3 BaseDaTorre => P(kGrausDaTorre, 47.5f, 0f);
+    static Vector3 Adiante(float metros, float y) => BaseDaTorre + Tangente(kGrausDaTorre) * metros + Vector3.up * y;
+
+    /// <summary>
+    /// Região intermediária. A torre já é uma escada de blocos soltos no ar,
+    /// e a onda os embaralha para cima e para baixo. A laje antes do Mirante
+    /// está inclinada 10 graus e a onda a inclina até 20: a ponta passa
+    /// acima do Mirante e se desce nele. O poço tem paredes inteiras - a onda
+    /// não as toca -, e com a onda o chão dele sobe um pouco.
+    /// </summary>
+    static void CriarRegiaoIntermediaria(Transform root)
+    {
+        float rumo = Rumo(kGrausDaTorre);
+        var t = Tangente(kGrausDaTorre);
+
+        Peca(root, "Caminho", P(18f, 40f, H2), Rumo(18f), 6f, 8f, Tangente(18f), 0);
+        Peca(root, "PeDaTorre", P(kGrausDaTorre, 40f, H2), rumo, 8f, 8f, Tangente(kGrausDaTorre), 1, 0.8f);
+
+        for (int i = 0; i < 3; i++)
+        {
+            float topo = H2 + 2.5f + i * 2.5f;
+            Peca(root, $"BlocoDaTorre{i + 1}", BaseDaTorre + t * (6f * (i + 1)) + Vector3.up * topo, rumo, 5f, 5f, t,
+                 i + 1, 0.8f, espessura: 2.5f);
+        }
+
+        float patamar = H2 + 10f;
+        Placa(root, "Patamar", Adiante(26f, patamar), kGrausDaTorre, 8f, 8f);
+        TempoKit.PontoDeControle(root, "PontoDeControle2", Adiante(26f, patamar), rumo);
+
+        // Laje que inclina: pivô na borda de perto. Já parada sobe 10 graus;
+        // a onda a leva a 20 (abaixo dos 25 do deslize: sobe-se correndo).
+        const float comprimento = 16f;
+        var pivo = new GameObject("RampaQueInclina");
+        pivo.transform.SetParent(root, false);
+        pivo.transform.SetPositionAndRotation(Adiante(30f, patamar), Quaternion.Euler(0f, rumo, 0f) * Quaternion.Euler(-10f, 0f, 0f));
+        var laje = Solid(pivo.transform, "Laje", LowPolyMesh.Prism(LowPolyMesh.Rectangle(5f, comprimento), -0.9f, 0f, LavaLetalArt.MetalTile),
+                         TempoKit.Bronze, TempoKit.BronzeEscuro, new Vector3(0f, 0f, comprimento * 0.5f), 0f);
+        GameObjectUtility.SetStaticEditorFlags(laje, 0);
+        var box = laje.AddComponent<BoxCollider>();
+        box.center = new Vector3(0f, -0.45f, 0f);
+        box.size = new Vector3(5f, 0.9f, comprimento);
+        LevelKit.AddKinematicBody(pivo);
+        var rachas = Rachaduras(laje.transform, 5f, comprimento, "Rampa");
+        var fragmento = pivo.AddComponent<FragmentoTemporal>();
+        LevelKit.SetVector(fragmento, "deslocamento", Vector3.zero);
+        LevelKit.SetVector(fragmento, "giro", new Vector3(-10f, 0f, 0f));
+        LevelKit.SetFloat(fragmento, "balanco", 0f);
+        EditorSetupUtil.SetReferences(fragmento, "rachaduras", rachas);
+
+        s_PontaParada = patamar + comprimento * Mathf.Sin(10f * Mathf.Deg2Rad);
+        s_PontaSolta = patamar + comprimento * Mathf.Sin(20f * Mathf.Deg2Rad);
+        float mirante = s_PontaParada + 0.5f;
+        Placa(root, "Mirante", Adiante(30f + comprimento + 1f + 4f, mirante), kGrausDaTorre, 8f, 8f);
+
+        // Poço: duas paredes inteiras, paralelas ao caminho, a 4,5 m uma da outra.
+        float inicio = 30f + comprimento + 1f + 8f + 1f;
+        var chao = Adiante(inicio + 2.5f, mirante);
+        Placa(root, "ChaoDoPoco", chao, kGrausDaTorre, 4.5f, 5f);
+        float altura = 13f;
+        foreach (float lado in new[] { -2.5f, 2.5f })
+        {
+            var p = chao + ParaFora(kGrausDaTorre) * lado;
+            var parede = Solid(root, "ParedeInteira", LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.6f, 7f), 0f, altura, 2f),
+                               TempoKit.BronzeEscuro, TempoKit.Bronze, p, rumo);
+            var colisor = parede.AddComponent<BoxCollider>();
+            colisor.center = new Vector3(0f, altura * 0.5f, 0f);
+            colisor.size = new Vector3(0.6f, altura, 7f);
+        }
+
+        // A câmera radial olharia de fora, através de uma das paredes. Aqui
+        // ela vai para as costas da bruxa, olhando na direção do caminho, um
+        // pouco acima: as paredes ficam à esquerda e à direita.
+        s_ExcecaoDoPoco = new RadialCameraFraming.Excecao
+        {
+            area = new Bounds(chao + Vector3.up * 6f, new Vector3(13f, 16f, 13f)),
+            yaw = rumo,
+            pitch = 38f,
+            distance = 15f,
+        };
+
+        var observatorio = Adiante(inicio + 5f + 1f + 5f, mirante + 9.5f);
+        Placa(root, "Observatorio", observatorio, kGrausDaTorre, 10f, 10f);
+        TempoKit.PontoDeControle(root, "PontoDeControle3", observatorio, rumo);
+        s_Observatorio = observatorio;
+    }
+
+    static float s_PontaParada, s_PontaSolta;
+    static Vector3 s_Observatorio;
+    static RadialCameraFraming.Excecao s_ExcecaoDoPoco;
+
+    const float kRaioExterno = 80f;
+
+    /// <summary>
+    /// Ilhas de fora, na altura do Observatório. Lajes que se afastam umas
+    /// das outras quando a onda chega (os vãos vão de 4,4 a 6,9 m) e um vão de
+    /// 19 m que pede impulso - ou, com a onda, só 9, porque a última laje
+    /// deriva na direção da ilha do outro lado.
+    /// </summary>
+    static void CriarRegiaoExterna(Transform root)
+    {
+        float y = s_Observatorio.y;
+        float grausDoObservatorio = Mathf.Atan2(s_Observatorio.x - O.x, -(s_Observatorio.z - O.z)) * Mathf.Rad2Deg;
+        var ilha1 = P(grausDoObservatorio + 12f, kRaioExterno, y);
+        Rock(root, "Ilha1", ilha1.x, ilha1.z, y, 4f, 9, 81, LavaLetalArt.RockBrown);
+
+        float[] graus = { 8f, 14f, 20f, 26f };
+        for (int i = 0; i < graus.Length; i++)
+        {
+            float g = grausDoObservatorio + 12f + graus[i];
+            Fragmento(root, $"Deriva{i + 1}", P(g, kRaioExterno, y), Rumo(g), 4f, 4f,
+                      Tangente(g) * (2.5f * (i + 1)) + Vector3.up * (i % 2 == 0 ? 1f : -0.8f),
+                      new Vector3(0f, 0f, 6f), registrarSolta: null, balanco: 0.08f);
+        }
+
+        float ultimo = grausDoObservatorio + 12f + graus[graus.Length - 1];
+        float metrosPorGrau = kRaioExterno * Mathf.Deg2Rad;
+        float grausDaIlha = ultimo + (2f + 19f + 4f) / metrosPorGrau;
+        var ilha = P(grausDaIlha, kRaioExterno, y);
+        Rock(root, "IlhaDoImpulso", ilha.x, ilha.z, y, 4f, 9, 82, LavaLetalArt.RockBrown);
+
+        s_GrausDaTorreDoFim = grausDaIlha + (4f + 6f + 5f) / metrosPorGrau;
+        var torre = P(s_GrausDaTorreDoFim, kRaioExterno, y);
+        Placa(root, "TorreDoFim", torre, s_GrausDaTorreDoFim, 10f, 10f);
+        Decor(root, "BaseDaTorreDoFim", LowPolyMesh.Prism(LowPolyMesh.Rectangle(8f, 8f), kBedrock - y, -0.8f, LavaLetalArt.RockTile, 0.8f),
+              LavaLetalArt.RockBurnt, torre);
+        TempoKit.PontoDeControle(root, "PontoDeControle4", torre, RumoParaDentro(s_GrausDaTorreDoFim));
+    }
+
+    static float s_GrausDaTorreDoFim;
+
+    /// <summary>
+    /// A sequência final: seis peças descendo da Torre do Fim até a ilha do
+    /// núcleo. Paradas, são uma ponte; com a onda, sobem e descem alternadas,
+    /// escorregam de lado e tombam - o trecho mais agitado do jogo, mas
+    /// sempre passável.
+    /// </summary>
+    static void CriarPonteFinal(Transform root)
+    {
+        float g = s_GrausDaTorreDoFim;
+        float y0 = s_Observatorio.y;
+        float rumo = RumoParaDentro(g);
+        var dentro = -ParaFora(g);
+        float[] raios = { 70.5f, 63.5f, 56.5f, 49f, 41f, 33f };
+        for (int i = 0; i < raios.Length; i++)
+            Peca(root, $"PecaFinal{i + 1}", P(g, raios[i], y0 - 3f - i * 3.2f), rumo, 5f, 5f, dentro, i, 1.15f);
+    }
+
+    /// <summary>
+    /// A ilha do núcleo, embaixo da ampulheta: o miolo é fixo, a borda são
+    /// oito lascas que se soltam com a onda. Tocar a ilha encerra a campanha.
+    /// </summary>
+    static void CriarNucleo(Transform root, Transform ampulheta)
+    {
+        var centro = O + Vector3.up * kIlhaDoNucleo;
+        var ilha = Solid(root, "IlhaDoNucleo", LowPolyMesh.Prism(LowPolyMesh.Regular(12, 15f), kBedrock - kIlhaDoNucleo, 0f,
+                                                               LavaLetalArt.RockTile, 1f / kFlare),
+                         TempoKit.Marfim, LavaLetalArt.RockSide, centro, 0f);
+        AddMeshCollider(ilha);
+
+        // Para a validação vale a borda inteira, com as lascas no lugar.
+        var borda = new Vector2[16];
+        for (int i = 0; i < 16; i++) borda[i] = Xz(P(i * 22.5f, kRaioDaIlha, 0f));
+        Register("IlhaDoNucleo", kIlhaDoNucleo, borda);
+
+        for (int i = 0; i < 8; i++)
+        {
+            float g = i * 45f + 22.5f;
+            var meio = P(g, (15f + kRaioDaIlha) * 0.5f, kIlhaDoNucleo);
+            Fragmento(root, $"Lasca{i + 1}", meio, Rumo(g), kRaioDaIlha - 15f + 0.4f, 2f * kRaioDaIlha * Mathf.Sin(22.5f * Mathf.Deg2Rad),
+                      ParaFora(g) * 2.5f + Vector3.down * 1.5f, new Vector3(0f, 0f, 12f), registrarSolta: false,
+                      balanco: 0.15f, tampo: TempoKit.Marfim, espessura: 2.5f);
+        }
+
+        // Clarão branco por cima de tudo, transparente até o fim da sequência.
+        var canvas = UiBuilder.CreateCanvas("Clarao", sortOrder: 60);
+        var imagem = new GameObject("Branco").AddComponent<Image>();
+        imagem.transform.SetParent(canvas.transform, false);
+        var rect = imagem.rectTransform;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        imagem.color = new Color(1f, 1f, 1f, 0f);
+        imagem.raycastTarget = false;
+
+        var go = new GameObject("FimDaCampanha");
+        go.transform.SetParent(root, false);
+        go.transform.position = centro + Vector3.up * 3f;
+        var area = go.AddComponent<BoxCollider>();
+        area.isTrigger = true;
+        area.size = new Vector3(kRaioDaIlha * 2f, 8f, kRaioDaIlha * 2f);
+
+        var fim = go.AddComponent<FimDaCampanha>();
+        EditorSetupUtil.SetReference(fim, "ampulheta", ampulheta);
+        EditorSetupUtil.SetReference(fim, "foco", ampulheta);
+        EditorSetupUtil.SetReference(fim, "musicaFinal", LevelKit.MusicClip(MusicaFinal));
+        EditorSetupUtil.SetReference(fim, "clarao", imagem);
+        EditorSetupUtil.SetReference(fim, "volumeRewind", Object.FindAnyObjectByType<Volume>());
+        EditorSetupUtil.SetString(fim, "cenaDosCreditos", CreditsSceneBuilder.SceneName);
+        EditorSetupUtil.SetString(fim, "cenaDeResultados", ResultsSceneBuilder.SceneName);
+        LevelKit.SetFloat(fim, "subida", 30f);
+        LevelKit.SetFloat(fim, "afastamento", 80f);
+    }
+
+    /// <summary>
+    /// Destroços soltos pela arena, sem colisão: rochas e lascas de bronze que
+    /// a onda levanta e gira. São o espetáculo do colapso, longe do caminho.
+    /// </summary>
+    static void CriarDestrocos(Transform root)
+    {
+        var random = new System.Random(4242);
+        for (int i = 0; i < 48; i++)
+        {
+            float g = (float)random.NextDouble() * 360f;
+            float r = 28f + (float)random.NextDouble() * 70f;
+            float y = 4f + (float)random.NextDouble() * 50f;
+            float tamanho = 1.2f + (float)random.NextDouble() * 3.5f;
+            var p = P(g, r, y);
+
+            var go = new GameObject("Destroco");
+            go.transform.SetParent(root, false);
+            go.transform.SetPositionAndRotation(p, Quaternion.Euler((float)random.NextDouble() * 360f,
+                                                                    (float)random.NextDouble() * 360f, 0f));
+            var malha = i % 3 == 0
+                ? TempoKit.MalhaEngrenagem(tamanho, 8, -0.5f, 0f, "Lasca")
+                : LowPolyMesh.Prism(LowPolyMesh.Rock(6, tamanho, 0.7f, random), -tamanho, 0f, LavaLetalArt.RockTile, 0.6f);
+            var visual = Solid(go.transform, "Visual", malha, i % 3 == 0 ? TempoKit.Bronze : LavaLetalArt.RockBurnt,
+                               i % 3 == 0 ? TempoKit.BronzeEscuro : LavaLetalArt.RockSide, Vector3.zero, 0f);
+            GameObjectUtility.SetStaticEditorFlags(visual, 0);
+            visual.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+
+            var f = go.AddComponent<FragmentoTemporal>();
+            LevelKit.SetVector(f, "deslocamento", ParaFora(g) * (4f + (float)random.NextDouble() * 8f) +
+                                                  Vector3.up * (3f + (float)random.NextDouble() * 9f));
+            LevelKit.SetVector(f, "giro", new Vector3((float)random.NextDouble() * 160f - 80f,
+                                                      (float)random.NextDouble() * 160f - 80f, 0f));
+            LevelKit.SetFloat(f, "balanco", 0.6f);
+        }
+    }
+
+    /// <summary>A borda da cratera: rochas altas em anel, além do alcance da onda.</summary>
     static void CriarCratera(Transform root)
     {
         var random = new System.Random(6060);
         for (int i = 0; i < 30; i++)
         {
             float graus = i * 12f + (float)random.NextDouble() * 6f;
-            if (Mathf.Abs(Mathf.DeltaAngle(graus, 0f)) < 16f) continue;
-            float raio = 108f + (float)random.NextDouble() * 14f;
+            float raio = 118f + (float)random.NextDouble() * 14f;
             var p = P(graus, raio, 0f);
-            float topo = 22f + (float)random.NextDouble() * 26f;
+            float topo = 26f + (float)random.NextDouble() * 30f;
             Rock(root, $"Borda{i}", p.x, p.z, topo, 9f + (float)random.NextDouble() * 6f, 8, 700 + i,
                  LavaLetalArt.RockBurnt, route: false);
         }
@@ -412,15 +689,15 @@ public static class CoracaoLevelBuilder
     }
 
     /// <summary>
-    /// Fora da cratera, a câmera fixa para +Z e uma zona mais alta sobre a
-    /// rampa; perto da ampulheta, a câmera radial olhando para o centro.
+    /// Câmera radial em toda a fase: sempre de fora para dentro, então a
+    /// ampulheta - o relógio do ciclo - fica sempre ao fundo da bruxa.
     /// </summary>
     static void CriarCamera(GameObject player, Vector3 largada)
     {
         var camera = Object.FindAnyObjectByType<OrbitCamera>();
         if (camera == null) return;
 
-        const float pitch = 30f, distancia = 19f;
+        const float pitch = 28f, distancia = 22f;
         LevelKit.SetFloat(camera, "fixedYaw", 0f);
         LevelKit.SetFloat(camera, "fixedPitch", pitch);
         LevelKit.SetFloat(camera, "fixedDistance", distancia);
@@ -432,11 +709,21 @@ public static class CoracaoLevelBuilder
         if (player != null) EditorSetupUtil.SetReference(radial, "player", player.transform);
         LevelKit.SetVector(radial, "center", O);
         var so = new SerializedObject(radial);
-        so.FindProperty("sectors").intValue = 8;
+        so.FindProperty("sectors").intValue = 12;
         so.ApplyModifiedPropertiesWithoutUndo();
         LevelKit.SetFloat(radial, "pitch", pitch);
-        LevelKit.SetFloat(radial, "distance", 21f);
-        LevelKit.SetFloat(radial, "raioMaximo", 30f);
+        LevelKit.SetFloat(radial, "distance", distancia);
+        LevelKit.SetFloat(radial, "raioMaximo", 0f);
+
+        var excecoes = new SerializedObject(radial);
+        var lista = excecoes.FindProperty("excecoes");
+        lista.arraySize = 1;
+        var item = lista.GetArrayElementAtIndex(0);
+        item.FindPropertyRelative("area").boundsValue = s_ExcecaoDoPoco.area;
+        item.FindPropertyRelative("yaw").floatValue = s_ExcecaoDoPoco.yaw;
+        item.FindPropertyRelative("pitch").floatValue = s_ExcecaoDoPoco.pitch;
+        item.FindPropertyRelative("distance").floatValue = s_ExcecaoDoPoco.distance;
+        excecoes.ApplyModifiedPropertiesWithoutUndo();
     }
 
     // ------------------------------------------------------------------
@@ -449,31 +736,65 @@ public static class CoracaoLevelBuilder
         if (report == null) return;
         var jump = report.Jump;
 
-        report.Route("Largada", "Largada");
-        report.Section("Saída da rampa (15 m/s)");
-        report.Expect("Rampa -> Pouso deslizando", true, FromRamp(jump, "Rampa", "Pouso", 15f, new string[0], 0f, false));
-        report.Expect("Rampa -> Pouso pulando", true, FromRamp(jump, "Rampa", "Pouso", 15f, new string[0], 0f, true));
+        // Toda peça que a onda move entra com as duas poses, e cada salto é
+        // conferido em todas as combinações: parada-parada, solta-solta e as
+        // misturadas (uma já solta, a outra ainda não). Nenhuma pode ser
+        // impossível - a onda dificulta, mas o caminho nunca fecha.
+        Rota(report, "Primeira região", "Largada", "Entrada", "Laje1", "Laje2", "Margem", "Degrau1", "Degrau2", "Degrau");
+        Rota(report, "Torre", "Degrau", "Caminho", "PeDaTorre", "BlocoDaTorre1", "BlocoDaTorre2", "BlocoDaTorre3", "Patamar");
+        report.Note($"Rampa: ponta a {s_PontaParada:0.0} m parada e {s_PontaSolta:0.0} m com a onda; " +
+                    $"Mirante a {Footprints["Mirante"].top:0.0} m");
+        Rota(report, "Poço", "Mirante", "ChaoDoPoco");
+        float subida = Footprints["Observatorio"].top - Footprints["ChaoDoPoco"].top;
+        report.Note($"ChaoDoPoco -> Observatorio: +{subida:0.0} m - " +
+                    (subida > jump.Jump + jump.DoubleJump + 0.5f ? "só pelas paredes (ok)" : "ALCANÇÁVEL SEM AS PAREDES"),
+                    subida <= jump.Jump + jump.DoubleJump + 0.5f);
 
-        report.Section("Travessia por bolhas");
-        report.Expect("Pouso -> Ilha1 pela bolha", true, FromIsland(jump, "Pouso", "Ilha1", jump.Speed, new[] { "Bolha1" }, 0f));
-        report.Expect("Ilha1 -> Ilha2 pela bolha", true, FromIsland(jump, "Ilha1", "Ilha2", jump.Speed, new[] { "Bolha2" }, 0f));
-        report.Expect("Ilha2 -> Base pela bolha", true, FromIsland(jump, "Ilha2", "Base", jump.Speed, new[] { "Bolha3" }, 0f));
-        report.Expect("Pouso -> Ilha1 sem a bolha", false, FromIsland(jump, "Pouso", "Ilha1", jump.Speed, new string[0], 0f));
-
-        report.Route("Espiral", "Base", "ChaoDoPoco");
-        // O Reach do validador não diz quando o desnível passa da altura do
-        // pulo; aqui a conta é direta: o duplo sobe no máximo pulo + duplo.
-        float poco = Gap(Footprints["ChaoDoPoco"].poly, Footprints["TopoDoPoco"].poly);
-        float subida = Footprints["TopoDoPoco"].top - Footprints["ChaoDoPoco"].top;
-        bool soPelasParedes = subida > jump.Jump + jump.DoubleJump + 0.5f;
-        report.Note($"ChaoDoPoco -> TopoDoPoco: vão {poco:0.0} m, desnível +{subida:0.0} m, pulo duplo sobe " +
-                    $"{jump.Jump + jump.DoubleJump:0.0} m - " + (soPelasParedes ? "só pelas paredes (ok)" : "ALCANÇÁVEL SEM AS PAREDES"),
-                    !soPelasParedes);
-
-        Register("Cristal1_Alto", FarEnds["Cristal1"].top, FarEnds["Cristal1"].poly);
-        report.Route("Cristais", "TopoDoPoco", "Fragil1", "Fragil2", "Fragil3", "Fragil4", "Degrau", "Cristal1_Alto", "Varanda");
-        report.Route("Perseguição", "Varanda", "HeliceInicio");
-        report.Route("Cristais finais", "HeliceFim", "FragilFinal1", "FragilFinal2", "FragilFinal3", "Cume");
+        Rota(report, "Região externa", "Observatorio", "Ilha1", "Deriva1", "Deriva2", "Deriva3", "Deriva4");
+        TempoKit.SaltoComImpulso(report, "Deriva4", "IlhaDoImpulso", exigido: false);
+        Rota(report, "Até a Torre do Fim", "IlhaDoImpulso", "TorreDoFim");
+        Rota(report, "Ponte final", "TorreDoFim", "PecaFinal1", "PecaFinal2", "PecaFinal3", "PecaFinal4",
+             "PecaFinal5", "PecaFinal6", "IlhaDoNucleo");
         report.Finish();
+    }
+
+    /// <summary>
+    /// Confere uma sequência em todas as combinações de pose. Falha se alguma
+    /// for impossível; avisa quando a pior pede pulo duplo.
+    /// </summary>
+    static float DistanciaDaOnda((float top, Vector2[] poly) peca)
+    {
+        var c = Centroid(peca.poly);
+        return Vector3.Distance(new Vector3(c.x, peca.top, c.y), O + Vector3.up * kMeioDaAmpulheta);
+    }
+
+    static void Rota(JumpReport report, string titulo, params string[] pecas)
+    {
+        report.Section(titulo);
+        for (int i = 0; i + 1 < pecas.Length; i++)
+        {
+            var a = Footprints[pecas[i]];
+            var b = Footprints[pecas[i + 1]];
+            (int rank, string text, float gap, float dy, float single, float twin) pior = (-1, "", 0, 0, 0, 0);
+            var de = Variants(pecas[i], a);
+            var para = Variants(pecas[i + 1], b);
+
+            // Pose misturada (uma solta, a outra não) só acontece se a onda
+            // chega às duas em momentos diferentes - à mesma distância do
+            // centro elas se soltam juntas.
+            bool misturadas = Mathf.Abs(DistanciaDaOnda(a) - DistanciaDaOnda(b)) > 2f;
+            for (int x = 0; x < de.Count; x++)
+            for (int y = 0; y < para.Count; y++)
+            {
+                if (!misturadas && de.Count > 1 && para.Count > 1 && x != y) continue;
+                var f = de[x];
+                var t = para[y];
+                var r = Judge(report.Jump, Gap(f.poly, t.poly), t.top - f.top);
+                if (r.rank > pior.rank || (r.rank == pior.rank && r.gap > pior.gap)) pior = r;
+            }
+
+            report.Note($"{pecas[i]} -> {pecas[i + 1]}: pior caso vão {pior.gap:0.0} m, desnível {pior.dy:+0.0;-0.0;0.0} m - {pior.text}",
+                        pior.rank >= 3);
+        }
     }
 }

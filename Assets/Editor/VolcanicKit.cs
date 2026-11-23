@@ -695,7 +695,7 @@ public static class VolcanicKit
         public float Reach(float dy, float? secondJumpAt)
         {
             const float dt = 1f / 240f;
-            float v = Mathf.Sqrt(2f * Gravity * Jump), y = 0f, t = 0f;
+            float v = Mathf.Sqrt(2f * Gravity * Jump), y = 0f, t = 0f, topo = 0f;
             bool used = false;
 
             while (t < 6f)
@@ -713,7 +713,12 @@ public static class VolcanicKit
                 y += v * dt;
                 t += dt;
 
-                if (v < 0f && y <= dy) return Speed * t;
+                topo = Mathf.Max(topo, y);
+
+                // Só conta se o arco chegou acima do alvo: sem isto, um degrau
+                // mais alto que o pulo aparecia como alcançável no primeiro
+                // quadro de descida.
+                if (v < 0f && y <= dy) return topo >= dy ? Speed * t : 0f;
             }
 
             return 0f;

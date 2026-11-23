@@ -76,6 +76,11 @@ public class FimDaCampanha : MonoBehaviour
         // última fase entram nos resultados como os das outras.
         var sessao = GameSession.Instance;
         if (sessao != null) sessao.Finish();
+
+        // A bruxa chegou ao núcleo: o colapso para de vez e o mundo se remonta
+        // enquanto a câmera se afasta.
+        var colapso = CicloDoColapso.Instancia;
+        if (colapso != null) colapso.Encerrar();
         SaveSystem.ConcluirCampanha();
 
         // Sem controle, sem pausa, sem rewind, sem HUD: daqui em diante é só olhar.

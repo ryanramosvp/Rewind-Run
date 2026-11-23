@@ -36,6 +36,9 @@ public static class TempoKit
     public static Material LuzAmbar { get; private set; }
     public static Material CeuNoturno { get; private set; }
     public static Material Particula { get; private set; }
+    public static Material Rachadura { get; private set; }
+    public static Material CascaDaOnda { get; private set; }
+    public static Material AnelDaOnda { get; private set; }
 
     /// <summary>Cria ou atualiza os materiais. Idempotente.</summary>
     public static void Ensure()
@@ -65,7 +68,14 @@ public static class TempoKit
 
         Ambar = Transparente("ZonaAmbar", new Color(1f, 0.65f, 0.15f, 0.16f), aditivo: false);
         AnelAmbar = Transparente("AnelAmbar", new Color(1f, 0.7f, 0.2f, 0.85f), aditivo: true);
-        Fantasma = Transparente("FantasmaCristal", new Color(0.35f, 0.9f, 1f, 0.22f), aditivo: true);
+        // Rachadura: escura e apagada; quem acende é o FragmentoTemporal,
+        // pelo bloco de propriedades. A emissão precisa estar ligada aqui.
+        Rachadura = Lit("Rachadura", null, new Color(0.1f, 0.12f, 0.16f), emissionColor: new Color(0.05f, 0.05f, 0.06f));
+
+        // A onda: casca azul-clara, translúcida, e anéis dourados somados.
+        CascaDaOnda = Transparente("CascaDaOnda", new Color(0.55f, 0.85f, 1f, 0.16f), aditivo: true);
+        AnelDaOnda = Transparente("AnelDaOnda", new Color(1f, 0.82f, 0.4f, 0.9f), aditivo: true);
+                Fantasma = Transparente("FantasmaCristal", new Color(0.35f, 0.9f, 1f, 0.22f), aditivo: true);
         Vidro = Transparente("Vidro", new Color(0.75f, 0.9f, 1f, 0.18f), aditivo: false);
 
         CeuNoturno = Ceu(Textura("ceu_noturno", 256, 256, PixelDoCeu));

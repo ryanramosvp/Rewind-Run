@@ -63,6 +63,51 @@ public static class SomProcedural
     /// <summary>Estalo seco: o cristal quebrando.</summary>
     public static AudioClip Estalo => _estalo ??= Gerar("Estalo", 0.35f, RuidoDescendo(0.35f, 1f));
 
+    static AudioClip _carga, _onda, _retorno;
+
+    /// <summary>
+    /// A ampulheta carregando: um grave que sobe de tom e de volume por três
+    /// segundos, com um tremor cada vez mais rápido. Anuncia a onda.
+    /// </summary>
+    public static AudioClip Carga => _carga ??= Gerar("CargaDaOnda", 3f, t =>
+    {
+        float u = t / 3f;
+        float f = Mathf.Lerp(70f, 220f, u * u);
+        // Fase integrada à mão: a frequência muda, e sin(2πft) daria um
+        // chiado de varredura.
+        float fase = 2f * Mathf.PI * (70f * t + (220f - 70f) * t * u * u / 3f);
+        float tremor = 0.7f + 0.3f * Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(3f, 18f, u) * t);
+        return (0.6f * Mathf.Sin(fase) + 0.25f * Mathf.Sin(fase * 2.01f)) * tremor * u * 0.7f;
+    });
+
+    /// <summary>A onda saindo: um baque grave e um sopro largo que se afasta.</summary>
+    public static AudioClip Onda => _onda ??= Gerar("OndaTemporal", 2.2f, Expansao(false));
+
+    /// <summary>A onda voltando: o mesmo som ao contrário, como fita rebobinando.</summary>
+    public static AudioClip Retorno => _retorno ??= Gerar("RetornoDaOnda", 2.2f, Expansao(true));
+
+    static System.Func<float, float> Expansao(bool aoContrario)
+    {
+        const float duracao = 2.2f;
+        var aleatorio = new System.Random(11);
+        var ruido = new float[Mathf.CeilToInt(duracao * Taxa) + 1];
+        float filtrado = 0f;
+        for (int i = 0; i < ruido.Length; i++)
+        {
+            filtrado += ((float)aleatorio.NextDouble() * 2f - 1f - filtrado) * 0.08f;
+            ruido[i] = filtrado;
+        }
+
+        return t =>
+        {
+            float u = aoContrario ? duracao - t : t;
+            int i = Mathf.Clamp(Mathf.RoundToInt(u * Taxa), 0, ruido.Length - 1);
+            float baque = Mathf.Exp(-u * 3f) * Mathf.Sin(2f * Mathf.PI * (48f - 10f * u) * u);
+            float sopro = ruido[i] * 3f * Mathf.Exp(-u * 1.4f) * Mathf.Clamp01(u * 8f);
+            return (0.7f * baque + 0.5f * sopro) * 0.9f;
+        };
+    }
+
     static System.Func<float, float> RuidoDescendo(float duracao, float volume)
     {
         // Ruído com semente fixa: o mesmo som a cada execução.

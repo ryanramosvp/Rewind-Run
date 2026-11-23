@@ -17,6 +17,20 @@ using UnityEngine;
 /// </summary>
 public class RadialCameraFraming : MonoBehaviour
 {
+    /// <summary>
+    /// Trecho em que a câmera de fora para dentro atrapalha - um poço entre
+    /// paredes, por exemplo, em que ela ficaria atrás de uma delas. Ali vale
+    /// um enquadramento fixo, e ao sair a fatia radial volta.
+    /// </summary>
+    [System.Serializable]
+    public struct Excecao
+    {
+        public Bounds area;
+        public float yaw;
+        [Range(5f, 70f)] public float pitch;
+        [Min(3f)] public float distance;
+    }
+
     [SerializeField] OrbitCamera cameraRig;
     [SerializeField] Transform player;
     [SerializeField] Vector3 center;
@@ -36,8 +50,12 @@ public class RadialCameraFraming : MonoBehaviour
              "Zero vale para qualquer distância (o tutorial).")]
     [SerializeField, Min(0f)] float raioMaximo;
 
+    [Tooltip("Trechos com enquadramento próprio, que valem por cima da câmera radial.")]
+    [SerializeField] Excecao[] excecoes = new Excecao[0];
+
     int _sector = -1;
     bool _fora;
+    int _excecao = -1;
 
     void Start()
     {
@@ -52,6 +70,26 @@ public class RadialCameraFraming : MonoBehaviour
     void LateUpdate()
     {
         if (cameraRig == null || player == null) return;
+
+        // Dentro de uma exceção, ela manda; aplica uma vez, ao entrar.
+        int dentro = -1;
+        for (int i = 0; i < excecoes.Length; i++)
+            if (excecoes[i].area.Contains(player.position)) { dentro = i; break; }
+
+        if (dentro >= 0)
+        {
+            if (dentro != _excecao)
+            {
+                var e = excecoes[dentro];
+                cameraRig.SetFixedFraming(e.yaw, e.pitch, e.distance, blendSeconds);
+                _excecao = dentro;
+            }
+
+            _fora = true;
+            return;
+        }
+
+        _excecao = -1;
 
         Vector3 outward = player.position - center;
         outward.y = 0f;
