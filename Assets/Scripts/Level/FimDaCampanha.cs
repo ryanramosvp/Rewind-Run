@@ -44,7 +44,10 @@ public class FimDaCampanha : MonoBehaviour
     [Tooltip("Volume com o perfil do rewind. Pulsa enquanto a ampulheta vira.")]
     [SerializeField] Volume volumeRewind;
 
-    [Tooltip("Cena carregada no fim.")]
+    [Tooltip("Créditos, que rolam logo depois do clarão.")]
+    [SerializeField] string cenaDosCreditos = "Creditos";
+
+    [Tooltip("Para onde os créditos levam ao terminar: os resultados da campanha.")]
     [SerializeField] string cenaDeResultados = "Resultados";
 
     [SerializeField, Min(1f)] float duracao = 11f;
@@ -138,6 +141,9 @@ public class FimDaCampanha : MonoBehaviour
             yield return null;
         }
 
-        SceneManager.LoadScene(cenaDeResultados);
+        // Os créditos vêm antes dos resultados: é o fim do jogo, e quem fez
+        // aparece enquanto o coro ainda soa. Eles mesmos levam aos resultados.
+        TelaDeCreditos.AbrirNoFimDaCampanha(cenaDeResultados);
+        SceneManager.LoadScene(cenaDosCreditos);
     }
 }

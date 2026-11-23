@@ -177,7 +177,7 @@ public static class CreditsSceneBuilder
         // acelerar sairia da tela (ver TelaDeCreditos).
         voltar.navigation = new Navigation { mode = Navigation.Mode.None };
 
-        ThemedUi.Text(root, "Dica", "SEGURE ENTER / A  acelerar      ESC / B  menu", 22f,
+        var dica = ThemedUi.Text(root, "Dica", "SEGURE ENTER / A  acelerar      ESC / B  menu", 22f,
                       new Color(theme.ash.r, theme.ash.g, theme.ash.b, 0.8f), new Vector2(0f, 0f),
                       new Vector2(380f, 40f), new Vector2(700f, 30f), TextAlignmentOptions.MidlineLeft,
                       bold: false, spacing: 2f);
@@ -187,7 +187,10 @@ public static class CreditsSceneBuilder
         EditorSetupUtil.SetReference(tela, "coluna", coluna);
         EditorSetupUtil.SetReference(tela, "entrada", entrada);
         EditorSetupUtil.SetReference(tela, "voltar", voltar);
+        EditorSetupUtil.SetReference(tela, "dica", dica);
+        EditorSetupUtil.SetReference(tela, "rotuloDoBotao", voltar.transform.Find("Rotulo").GetComponent<TMP_Text>());
         LevelKit.SetFloat(tela, "paradaFinal", parada);
+        LevelKit.SetFloat(tela, "velocidade", 50f);
     }
 
     static void Linha(RectTransform coluna, string texto, ref float y, float tamanho, Color cor, float altura,

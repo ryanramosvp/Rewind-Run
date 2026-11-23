@@ -325,6 +325,7 @@ public static class CoracaoLevelBuilder
         EditorSetupUtil.SetReference(fimDaCampanha, "musicaFinal", LevelKit.MusicClip(MusicaFinal));
         EditorSetupUtil.SetReference(fimDaCampanha, "clarao", imagem);
         EditorSetupUtil.SetReference(fimDaCampanha, "volumeRewind", Object.FindAnyObjectByType<Volume>());
+        EditorSetupUtil.SetString(fimDaCampanha, "cenaDosCreditos", CreditsSceneBuilder.SceneName);
         EditorSetupUtil.SetString(fimDaCampanha, "cenaDeResultados", ResultsSceneBuilder.SceneName);
         LevelKit.SetFloat(fimDaCampanha, "subida", 30f);
         LevelKit.SetFloat(fimDaCampanha, "afastamento", 70f);

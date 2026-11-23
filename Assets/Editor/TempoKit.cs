@@ -498,14 +498,37 @@ public static class TempoKit
     public static void MontarAmpulheta(Transform pai, float altura)
     {
         float h = altura, r = altura * 0.62f;
-        var tampa = LowPolyMesh.Prism(LowPolyMesh.Regular(8, r * 1.15f, 22.5f), -h * 0.1f, h * 0.1f, 1f);
+
+        // Tampas fechadas, de torno: com face embaixo e em cima. A de cima é
+        // vista de baixo durante quase toda a subida, e um prisma sem fundo
+        // simplesmente sumia daquele ângulo.
+        float t = h * 0.1f, rt = r * 1.15f;
+        var tampa = MalhaTorno(new[]
+        {
+            new Vector2(0.01f, -t), new Vector2(rt * 0.92f, -t), new Vector2(rt, -t * 0.3f),
+            new Vector2(rt, t * 0.3f), new Vector2(rt * 0.92f, t), new Vector2(0.01f, t),
+        }, 8, "Tampa");
         Parte(pai, "TampaDeCima", tampa, Bronze, new Vector3(0f, h, 0f));
         Parte(pai, "TampaDeBaixo", tampa, Bronze, new Vector3(0f, -h, 0f));
+
+        // Remate no alto: um botão de bronze e uma ponta acesa. É o que diz
+        // "este é o topo" - e o que fica embaixo quando ela vira no final.
+        var remate = MalhaTorno(new[]
+        {
+            new Vector2(0.01f, 0f), new Vector2(r * 0.32f, 0f), new Vector2(r * 0.18f, h * 0.08f),
+            new Vector2(r * 0.24f, h * 0.14f), new Vector2(r * 0.1f, h * 0.22f), new Vector2(0.01f, h * 0.24f),
+        }, 8, "Remate");
+        Parte(pai, "RemateDeCima", remate, BronzeEscuro, new Vector3(0f, h + t, 0f));
+        var pontaDeCima = Parte(pai, "LuzDeCima", MalhaTorno(new[]
+        {
+            new Vector2(0.01f, 0f), new Vector2(r * 0.09f, h * 0.03f), new Vector2(0.01f, h * 0.12f),
+        }, 6, "Ponta"), LuzAmbar, new Vector3(0f, h + t + h * 0.24f, 0f));
+        pontaDeCima.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         for (int i = 0; i < 3; i++)
         {
             float a = i * Mathf.PI * 2f / 3f + 0.5f;
-            var coluna = LowPolyMesh.Prism(LowPolyMesh.Regular(4, h * 0.05f, 45f), -h, h, 1f);
+            var coluna = LowPolyMesh.Prism(LowPolyMesh.Regular(6, h * 0.05f, 30f), -h, h, 1f);
             Parte(pai, "Coluna", coluna, BronzeEscuro, new Vector3(Mathf.Cos(a) * r * 1.02f, 0f, Mathf.Sin(a) * r * 1.02f));
         }
 
@@ -523,6 +546,16 @@ public static class TempoKit
             new Vector2(0.01f, -h * 0.3f),
         }, 10, "Areia");
         Parte(pai, "Areia", areia, Areia, Vector3.zero);
+
+        // A areia sobe: no bulbo de cima ela se junta contra a tampa, um monte
+        // de ponta-cabeça. As duas metades cheias leem como o tempo a meio
+        // caminho, e não como um vidro vazio.
+        var areiaDeCima = MalhaTorno(new[]
+        {
+            new Vector2(0.01f, h * 0.38f), new Vector2(r * 0.55f, h * 0.52f), new Vector2(r * 0.8f, h * 0.74f),
+            new Vector2(0.01f, h * 0.9f),
+        }, 10, "AreiaDeCima");
+        Parte(pai, "AreiaDeCima", areiaDeCima, Areia, Vector3.zero);
     }
 
     static GameObject Parte(Transform pai, string name, Mesh mesh, Material material, Vector3 posicao)
@@ -532,7 +565,12 @@ public static class TempoKit
         go.transform.localPosition = posicao;
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         var r = go.AddComponent<MeshRenderer>();
-        r.sharedMaterial = material;
+
+        // Um material para cada submalha: os prismas trazem topo e laterais
+        // separados, e só com um material as laterais não eram desenhadas.
+        var materiais = new Material[Mathf.Max(1, mesh.subMeshCount)];
+        for (int i = 0; i < materiais.Length; i++) materiais[i] = material;
+        r.sharedMaterials = materiais;
         if (material == Vidro) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return go;
     }
