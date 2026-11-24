@@ -191,7 +191,10 @@ public class OrbitCamera : MonoBehaviour
     /// </summary>
     public void ApplyCursorMode()
     {
-        bool locked = lockCursor && Modo == CameraMode.Orbita;
+        // Preso também no enquadramento forçado (o trecho em 2D): quem joga com a
+        // câmera de mouse está com a mão no mouse, e o cursor solto escapava da
+        // janela no meio do trecho - um clique fora e o jogo perdia o foco.
+        bool locked = lockCursor && (Modo == CameraMode.Orbita || (_forcada && GameSettings.CameraComMouse));
 
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !locked;

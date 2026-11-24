@@ -447,7 +447,7 @@ public static class TempoKit
 
     /// <summary>
     /// Pêndulo pendurado num arco de ferro: eixo em <paramref name="pivo"/>,
-    /// haste até o peso, que mata. Balança no eixo X do mundo atravessando
+    /// haste até o peso, que arremessa. Balança no eixo X do mundo atravessando
     /// um caminho que corre em Z.
     /// </summary>
     public static GameObject Pendulo(Transform root, string name, Vector3 pivo, float comprimento, float amplitude,
