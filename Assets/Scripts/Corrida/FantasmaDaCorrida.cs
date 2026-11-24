@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// O fantasma: uma cópia translúcida da bruxa que corre a mesma fase, numa
@@ -17,10 +18,12 @@ using UnityEngine;
 /// continua correndo - o rewind custa tempo, e a corrida não fica trivial.
 /// Morrer leva os dois ao último ponto de controle: o fantasma volta ao
 /// instante em que a bruxa tocou aquele ponto, como numa repetição a partir
-/// dali. Perder a corrida é diferente: aí os dois recomeçam juntos no ponto
-/// de controle - o fantasma volta ao instante em que ELE passa por ali. Sem
-/// isso, quem tocou o ponto muito atrás renascia com o fantasma já quase na
-/// chegada e perdia de novo a cada tentativa, sem fim.
+/// dali. Se esse instante já não deixar tempo para começar (o ponto foi
+/// tocado com o fantasma quase na chegada), os dois recomeçam juntos ali.
+///
+/// Perder a corrida - o fantasma chegar primeiro - recomeça a fase inteira,
+/// do início: a corrida é contra ele de ponta a ponta, e os pontos de
+/// controle servem para as quedas, não para dividir a disputa em pedaços.
 ///
 /// Num trecho da fase (<see cref="areaDoEco"/>) ele deixa a rota e passa a
 /// repetir o caminho da própria bruxa com um pequeno atraso. Encostar nele
@@ -54,6 +57,11 @@ public class FantasmaDaCorrida : MonoBehaviour
     [Tooltip("Distância em que o eco alcança a bruxa.")]
     [SerializeField, Min(0.2f)] float raioDeCaptura = 0.9f;
 
+    [Tooltip("O eco só começa com o fantasma a até estes segundos da bruxa na corrida, " +
+             "à frente ou atrás. Longe disso ele segue na própria rota: o eco não pode " +
+             "trazer de volta um fantasma que já está quase na chegada.")]
+    [SerializeField, Min(0.5f)] float distanciaDoEco = 4f;
+
     [Header("Imagem")]
     [Tooltip("Orientação do modelo: gira para onde ele corre e vira no teto.")]
     [SerializeField] Transform modelo;
@@ -61,6 +69,9 @@ public class FantasmaDaCorrida : MonoBehaviour
     [SerializeField] Renderer[] corpo = new Renderer[0];
     [SerializeField] ParticleSystem rastro;
     [SerializeField] ParticleSystem dissolucao;
+
+    [Tooltip("Segundos com o aviso na tela antes de a fase recomeçar, depois de perder.")]
+    [SerializeField, Min(0f)] float esperaDaDerrota = 1.8f;
 
     [Tooltip("Cor do corpo translúcido.")]
     [SerializeField] Color cor = new Color(0.55f, 0.85f, 1f, 0.45f);
@@ -73,7 +84,7 @@ public class FantasmaDaCorrida : MonoBehaviour
     float _tempo;
     float _tempoNoPonto;
     float _distanciaDoPonto;
-    bool _perdeu;
+    int _dicaDaBruxa;
     bool _chegou;
     bool _parado;
     bool _noEco;
@@ -139,10 +150,11 @@ public class FantasmaDaCorrida : MonoBehaviour
         // instante guardado já não deixaria a bruxa nem começar.
         float juntos = TempoNaDistancia(_distanciaDoPonto);
         bool semChance = _tempoNoPonto >= Duracao - 1f;
-        _tempo = _perdeu || semChance ? Mathf.Min(juntos, _tempoNoPonto) : _tempoNoPonto;
+        _tempo = semChance ? Mathf.Min(juntos, _tempoNoPonto) : _tempoNoPonto;
 
-        _perdeu = false;
         _chegou = false;
+        _noEco = false;
+        _dicaDaBruxa = 0;
         _passos.Clear();
     }
 
@@ -164,7 +176,8 @@ public class FantasmaDaCorrida : MonoBehaviour
             while (_passos.Count > 0 && _passos[0].t < Time.time - atrasoDoEco - 1f) _passos.RemoveAt(0);
         }
 
-        bool eco = areaDoEco.size.sqrMagnitude > 0f && _bruxa != null && areaDoEco.Contains(_bruxa.transform.position);
+        bool naArea = areaDoEco.size.sqrMagnitude > 0f && _bruxa != null && areaDoEco.Contains(_bruxa.transform.position);
+        bool eco = naArea && (_noEco || PertoDaBruxa());
         if (eco != _noEco)
         {
             _noEco = eco;
@@ -201,6 +214,18 @@ public class FantasmaDaCorrida : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// O fantasma está perto da bruxa na corrida? Medido em tempo: quanto
+    /// falta (ou quanto já passou) para ele chegar onde ela está na rota.
+    /// Uma vez começado, o eco vai até o fim da área, mesmo que a diferença
+    /// mude - sumir e voltar no meio seria pior.
+    /// </summary>
+    bool PertoDaBruxa()
+    {
+        float daBruxa = DistanciaNaRota(_bruxa.transform.position, ref _dicaDaBruxa);
+        return Mathf.Abs(TempoNaDistancia(daBruxa) - _tempo) <= distanciaDoEco;
+    }
+
     bool TryPassoAtrasado(out Vector3 posicao, out bool invertida)
     {
         float quando = Time.time - atrasoDoEco;
@@ -217,12 +242,32 @@ public class FantasmaDaCorrida : MonoBehaviour
         return false;
     }
 
-    void PerdeuACorrida()
+    void PerdeuACorrida() => StartCoroutine(RecomecarAFase());
+
+    /// <summary>
+    /// O fantasma chegou primeiro: aviso curto e a fase recomeça do início,
+    /// sem tela de morte no meio - não foi uma queda. A bruxa para, o
+    /// fantasma fica na chegada, e o rewind sai de cena para ninguém voltar
+    /// no tempo durante a espera.
+    /// </summary>
+    IEnumerator RecomecarAFase()
     {
-        _perdeu = true;
-        PainelDeAvisos.Mostrar("O fantasma chegou primeiro.", null, 2.5f);
-        var respawn = LevelRespawn.Instance;
-        if (respawn != null) respawn.RestartLevel();
+        _parado = true;
+        PainelDeAvisos.Mostrar("O fantasma chegou primeiro.", null, esperaDaDerrota + 0.5f);
+
+        if (_bruxa != null)
+        {
+            _bruxa.ResetToIdle();
+            _bruxa.enabled = false;
+        }
+
+        var rewind = RewindManager.Instance;
+        if (rewind != null) rewind.enabled = false;
+
+        // Tempo real: com uma pausa aberta no meio, a espera ainda termina.
+        yield return new WaitForSecondsRealtime(esperaDaDerrota);
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     void Posicionar(Vector3 p) => transform.position = p;
