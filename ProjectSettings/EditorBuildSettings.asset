@@ -30,6 +30,9 @@ EditorBuildSettings:
     path: Assets/Scenes/Level_CoracaoDoTempo.unity
     guid: 0c886f0b57e66484a8eee452895084a3
   - enabled: 1
+    path: Assets/Scenes/Level_UltimaCorrida.unity
+    guid: 3f9fe251ef3fed741866b6c0c1f73fd7
+  - enabled: 1
     path: Assets/Scenes/Resultados.unity
     guid: 03e487cf186fffa4f9306ab5b9ff424a
   - enabled: 1

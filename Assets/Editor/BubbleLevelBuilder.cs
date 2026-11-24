@@ -23,10 +23,11 @@ public static class BubbleLevelBuilder
 {
     const string kScenePath = "Assets/Scenes/Level_TorreDeBolhas.unity";
 
-    // Limites de S, A, B, C e D, em segundos. Acima de D é F.
-    // Mesma regra da Corrida de Lava: o S fica logo acima do melhor tempo
-    // gravado no save (17,28 s) e os degraus abrem na mesma proporção.
-    static readonly float[] kRanks = { 18f, 22f, 27f, 35f, 49f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (13,0 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 12.5f, 15f, 18.5f, 24f, 34f };
 
     [MenuItem("Rewind Run/Criar Fase 2: Torre de Bolhas", priority = 8)]
     public static void Build()

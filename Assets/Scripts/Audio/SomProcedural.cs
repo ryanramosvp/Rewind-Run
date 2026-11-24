@@ -64,6 +64,32 @@ public static class SomProcedural
     public static AudioClip Estalo => _estalo ??= Gerar("Estalo", 0.35f, RuidoDescendo(0.35f, 1f));
 
     static AudioClip _carga, _onda, _retorno;
+    static AudioClip _inversao, _buracoNegro;
+
+    /// <summary>
+    /// Gravidade virando: um tom que sobe e desce numa volta só, como algo
+    /// girando de cabeça para baixo.
+    /// </summary>
+    public static AudioClip Inversao => _inversao ??= Gerar("Inversao", 0.5f, t =>
+    {
+        float u = t / 0.5f;
+        float f = 300f + 500f * Mathf.Sin(Mathf.PI * u);
+        float env = Mathf.Sin(Mathf.PI * u);
+        return env * (0.5f * Mathf.Sin(2f * Mathf.PI * f * t) + 0.2f * Mathf.Sin(2f * Mathf.PI * f * 1.5f * t)) * 0.5f;
+    });
+
+    /// <summary>
+    /// Zumbido do buraco negro: grave, com batimento lento entre dois tons
+    /// próximos. Laço de 2 s exatos, frequências que fecham ciclos inteiros.
+    /// </summary>
+    public static AudioClip BuracoNegro => _buracoNegro ??= Gerar("BuracoNegro", 2f, t =>
+    {
+        float a = Mathf.Sin(2f * Mathf.PI * 40f * t);
+        float b = Mathf.Sin(2f * Mathf.PI * 41f * t);
+        float c = 0.3f * Mathf.Sin(2f * Mathf.PI * 80f * t + 0.4f);
+        return (0.45f * a + 0.45f * b + c) * 0.55f;
+    });
+
 
     /// <summary>
     /// A ampulheta carregando: um grave que sobe de tom e de volume por três

@@ -219,10 +219,10 @@ public class PlayerController : MonoBehaviour
 
     public Vector3 HorizontalVelocity => _horizontalVelocity;
     public float VerticalVelocity => _verticalVelocity;
-    public bool IsGrounded => _controller.isGrounded;
+    public bool IsGrounded => Apoiado;
 
     /// <summary>Plataforma móvel sob os pés agora, se houver (peças que reagem ao peso a leem).</summary>
-    public IPlataformaMovel PlataformaSobOsPes => _controller.isGrounded ? _platform : null;
+    public IPlataformaMovel PlataformaSobOsPes => Apoiado ? _platform : null;
     public int AirJumpsUsed => _airJumpsUsed;
 
     /// <summary>O impulso deste salto já foi gasto.</summary>
@@ -342,9 +342,13 @@ public class PlayerController : MonoBehaviour
         // O deslocamento da plataforma entra somado, não como velocidade: ele
         // já é a distância deste frame, e o CharacterController não carrega
         // ninguém sozinho.
-        bool groundedBeforeMove = _controller.isGrounded;
+        bool groundedBeforeMove = Apoiado;
         Vector3 carry = _platform != null && groundedBeforeMove ? _platform.DeslocamentoEm(transform.position) : Vector3.zero;
-        _controller.Move((_horizontalVelocity + Vector3.up * _verticalVelocity) * dt + carry);
+        AplicarForcasExternas(dt);
+        if (_planoAtivo) _horizontalVelocity = Vector3.ProjectOnPlane(_horizontalVelocity, _planoNormal);
+        _controller.Move((_horizontalVelocity + Cima * _verticalVelocity) * dt + carry);
+        if (_planoAtivo) CorrigirPlano();
+        AjustarModelo(dt);
 
         // Correndo ladeira abaixo também: sem isto, numa descida longa abaixo
         // do ângulo do slide, a bruxa a 11 m/s saía do chão a cada passo -
@@ -363,8 +367,12 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void RestoreState(Vector3 horizontal, float vertical, int airJumpsUsed,
                              PlayerMoveState state = PlayerMoveState.Normal, float hopBonus = 0f,
-                             bool dashUsed = false)
+                             bool dashUsed = false, bool gravidadeInvertida = false)
     {
+        // A gravidade volta junto: o rewind leva a bruxa a um instante em que
+        // ela podia estar no teto.
+        _sentido = gravidadeInvertida ? -1f : 1f;
+
         _horizontalVelocity = horizontal;
         _verticalVelocity = vertical;
         _airJumpsUsed = Mathf.Clamp(airJumpsUsed, 0, airJumps);
@@ -383,6 +391,125 @@ public class PlayerController : MonoBehaviour
         // acumulada seria uma punicao escondida dentro da mecanica que existe
         // justamente para desfazer punicoes.
         _hopBonus = Mathf.Clamp(hopBonus, 0f, maxHopBonus);
+    }
+
+    // ------------------------------------------------------------------
+    // Gravidade invertida, forças externas e plano lateral (A Última Corrida)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Sentido da gravidade: 1 puxa para baixo, -1 puxa para o teto.
+    ///
+    /// A cápsula do CharacterController fica sempre em pé, então só chão e
+    /// teto são possíveis - e bastam: todo o movimento vertical passa a ser
+    /// medido ao longo de <see cref="Cima"/>, e o resto (corrida, pulo, pulo
+    /// duplo, impulso, parede) funciona igual de cabeça para baixo.
+    /// </summary>
+    float _sentido = 1f;
+
+    /// <summary>Para onde é "cima" agora: o lado contrário ao que a gravidade puxa.</summary>
+    Vector3 Cima => _sentido > 0f ? Vector3.up : Vector3.down;
+
+    /// <summary>Apoiada no chão - que, com a gravidade invertida, é o teto.</summary>
+    bool Apoiado => _sentido > 0f ? _controller.isGrounded
+                                  : (_controller.collisionFlags & CollisionFlags.Above) != 0;
+
+    public bool GravidadeInvertida => _sentido < 0f;
+
+    /// <summary>Avisa quando a gravidade vira (som, efeitos).</summary>
+    public event System.Action<bool> GravidadeMudou;
+
+    [Header("Gravidade invertida")]
+    [Tooltip("Velocidade, em graus por segundo, com que o modelo vira de cabeça para baixo.")]
+    [SerializeField, Min(10f)] float giroDaGravidade = 540f;
+
+    /// <summary>
+    /// Vira a gravidade. A velocidade do instante é mantida no mundo - quem
+    /// sobe continua subindo, agora "caindo" para o teto -, para a troca não
+    /// dar um tranco no meio do movimento.
+    /// </summary>
+    public void DefinirGravidade(bool invertida)
+    {
+        float novo = invertida ? -1f : 1f;
+        if (Mathf.Approximately(novo, _sentido)) return;
+
+        _sentido = novo;
+        _verticalVelocity = -_verticalVelocity;
+        _isJumping = false;
+        _dashTimer = 0f;
+        State = PlayerMoveState.Normal;
+        GravidadeMudou?.Invoke(invertida);
+    }
+
+    Vector3 _aceleracaoExterna;
+
+    /// <summary>
+    /// Soma uma aceleração deste quadro (m/s²), de fora do controle: a atração
+    /// de um buraco negro. Zera depois de aplicada; quem puxa chama de novo a
+    /// cada quadro.
+    /// </summary>
+    public void AplicarAceleracao(Vector3 aceleracao) => _aceleracaoExterna += aceleracao;
+
+    void AplicarForcasExternas(float dt)
+    {
+        var a = _aceleracaoExterna;
+        _aceleracaoExterna = Vector3.zero;
+
+        // Durante o impulso a reta dele manda: é justamente com ele que se
+        // escapa de uma atração.
+        if (_dashTimer > 0f || a.sqrMagnitude < 0.0001f) return;
+
+        _horizontalVelocity += new Vector3(a.x, 0f, a.z) * dt;
+        _verticalVelocity += Vector3.Dot(a, Cima) * dt;
+    }
+
+    bool _planoAtivo;
+    Vector3 _planoNormal;
+    float _planoCoordenada;
+
+    /// <summary>
+    /// Prende o movimento num plano vertical (o trecho em 2D): a bruxa só anda
+    /// ao longo dele. <paramref name="normal"/> é horizontal e aponta para a
+    /// câmera; <paramref name="ponto"/> é qualquer ponto do plano.
+    /// </summary>
+    public void PrenderNoPlano(Vector3 normal, Vector3 ponto)
+    {
+        normal.y = 0f;
+        _planoNormal = normal.normalized;
+        _planoCoordenada = Vector3.Dot(ponto, _planoNormal);
+        _planoAtivo = true;
+    }
+
+    public void SoltarDoPlano() => _planoAtivo = false;
+
+    public bool NoPlano => _planoAtivo;
+
+    // Puxa de volta para o plano o que a colisão tiver desviado.
+    void CorrigirPlano()
+    {
+        float desvio = _planoCoordenada - Vector3.Dot(transform.position, _planoNormal);
+        if (Mathf.Abs(desvio) > 0.001f) _controller.Move(_planoNormal * desvio);
+    }
+
+    /// <summary>
+    /// De cabeça para baixo, o modelo sobe a altura do corpo: o pivô dele fica
+    /// nos pés, e virado sem subir ele pendurava para fora da cápsula.
+    /// </summary>
+    void AjustarModelo(float dt)
+    {
+        if (visual == transform) return;
+        var alvo = _sentido > 0f ? Vector3.zero : Vector3.up * _controller.height;
+        visual.localPosition = Vector3.MoveTowards(visual.localPosition, alvo, _controller.height * 4f * dt);
+
+        // Parado, o UpdateFacing não gira; a virada precisa acontecer mesmo assim.
+        var cimaAtual = visual.up;
+        if (Vector3.Dot(cimaAtual, Cima) < 0.999f)
+        {
+            var frente = Vector3.ProjectOnPlane(visual.forward, Vector3.up);
+            if (frente.sqrMagnitude < 0.001f) frente = Vector3.forward;
+            var alvoRotacao = Quaternion.LookRotation(frente.normalized, Cima);
+            visual.rotation = Quaternion.RotateTowards(visual.rotation, alvoRotacao, giroDaGravidade * dt);
+        }
     }
 
     /// <summary>Zera o movimento e o pulo duplo. Usado ao renascer.</summary>
@@ -411,7 +538,10 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (Vector3.Angle(hit.normal, Vector3.up) < minWallAngle) return;
+        // Chão e teto não são parede - com a gravidade invertida, o "chão" é o
+        // teto. Só o que fica de lado conta para o salto de parede.
+        if (Vector3.Angle(hit.normal, Cima) < minWallAngle) return;
+        if (Vector3.Angle(hit.normal, -Cima) < minWallAngle) return;
 
         _wallNormal = hit.normal;
         _wallContactFrame = Time.frameCount;
@@ -426,7 +556,7 @@ public class PlayerController : MonoBehaviour
 
         // O contato só existe enquanto a bruxa empurra contra a parede, então a
         // intenção de agarrar já está implícita em haver contato.
-        IsWallSliding = !_controller.isGrounded
+        IsWallSliding = !Apoiado
                         && TouchingWall
                         && _verticalVelocity < 0f;
 
@@ -449,7 +579,7 @@ public class PlayerController : MonoBehaviour
 
     void UpdateGroundState(float dt)
     {
-        bool grounded = _controller.isGrounded;
+        bool grounded = Apoiado;
 
         if (grounded)
         {
@@ -511,7 +641,7 @@ public class PlayerController : MonoBehaviour
         // Continua deslizando enquanto a rampa segurar, ou enquanto sobrar
         // velocidade no plano - é isso que deixa a bruxa sair da descida e
         // seguir escorregando até a fricção comer tudo.
-        bool stillSliding = _controller.isGrounded
+        bool stillSliding = Apoiado
                             && (IsOnSlideSlope || _horizontalVelocity.magnitude > slideExitSpeed);
 
         if (!stillSliding) State = PlayerMoveState.Normal;
@@ -525,7 +655,7 @@ public class PlayerController : MonoBehaviour
     {
         get
         {
-            Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, _groundNormal);
+            Vector3 downhill = Vector3.ProjectOnPlane(-Cima, _groundNormal);
             downhill.y = 0f;
 
             return downhill.sqrMagnitude > 0.0001f ? downhill.normalized : Vector3.zero;
@@ -542,7 +672,7 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     bool CanStartSlide()
     {
-        if (!_controller.isGrounded || !IsOnSlideSlope) return false;
+        if (!Apoiado || !IsOnSlideSlope) return false;
         if (_slopeTime < slopeConfirmSeconds) return false;
 
         return Vector3.Dot(_horizontalVelocity, DownhillDirection) >= minDownhillSpeed;
@@ -571,7 +701,7 @@ public class PlayerController : MonoBehaviour
     {
         if (_hasGround && _groundAngle > 0.5f)
         {
-            Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, _groundNormal);
+            Vector3 downhill = Vector3.ProjectOnPlane(-Cima, _groundNormal);
             var horizontal = new Vector3(downhill.x, 0f, downhill.z);
             _horizontalVelocity += horizontal * (gravity * slopeAcceleration * dt);
         }
@@ -601,7 +731,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (_controller.isGrounded && _verticalVelocity < 0f) _verticalVelocity = -2f;
+        if (Apoiado && _verticalVelocity < 0f) _verticalVelocity = -2f;
         else _verticalVelocity = Mathf.Max(_verticalVelocity - gravity * fallGravityMultiplier * dt, terminalVelocity);
 
         UpdateFacing(dt);
@@ -621,7 +751,7 @@ public class PlayerController : MonoBehaviour
             Vector3 wishDirection = CameraRelative(input.Move);
             float targetSpeed = moveSpeed + _hopBonus;
 
-            if (_controller.isGrounded)
+            if (Apoiado)
             {
                 Vector3 targetVelocity = wishDirection * targetSpeed;
 
@@ -725,8 +855,8 @@ public class PlayerController : MonoBehaviour
 
         if (lookDirection.sqrMagnitude < 0.001f) return;
 
-        var look = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
-        float speed = _controller.isGrounded || IsWallSliding ? turnSpeed : airTurnVisualSpeed;
+        var look = Quaternion.LookRotation(lookDirection.normalized, Cima);
+        float speed = Apoiado || IsWallSliding ? turnSpeed : airTurnVisualSpeed;
         visual.rotation = Quaternion.RotateTowards(visual.rotation, look, speed * dt);
     }
 
@@ -764,7 +894,7 @@ public class PlayerController : MonoBehaviour
         // Saltar de uma plataforma em movimento leva o embalo dela. Sem isto a
         // bruxa perderia a velocidade no instante do salto e cairia atrás da
         // plataforma, que é o contrário do que o olho espera.
-        if (!isAirJump && _platform != null && _controller.isGrounded)
+        if (!isAirJump && _platform != null && Apoiado)
         {
             Vector3 platformSpeed = _platform.VelocidadeEm(transform.position);
             _horizontalVelocity += new Vector3(platformSpeed.x, 0f, platformSpeed.z);
@@ -842,7 +972,7 @@ public class PlayerController : MonoBehaviour
     void TryStartDash()
     {
         if (!dashLiberado || _dashUsed || _dashTimer > 0f) return;
-        if (_controller.isGrounded || State == PlayerMoveState.Slide) return;
+        if (Apoiado || State == PlayerMoveState.Slide) return;
         if (!input.DashPressedThisFrame) return;
 
         // Para onde o direcional aponta; parado, para onde ela olha.
@@ -1002,7 +1132,7 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     void ProbeGround()
     {
-        _groundNormal = Vector3.up;
+        _groundNormal = Cima;
         _groundAngle = 0f;
         _hasGround = false;
         _platform = null;
@@ -1010,7 +1140,7 @@ public class PlayerController : MonoBehaviour
         Vector3 origin = transform.position + _controller.center;
         float distance = _controller.height * 0.5f + 0.6f;
 
-        if (!Physics.Raycast(origin, Vector3.down, out var hit, distance,
+        if (!Physics.Raycast(origin, -Cima, out var hit, distance,
                              groundMask, QueryTriggerInteraction.Ignore))
         {
             return;
@@ -1019,7 +1149,7 @@ public class PlayerController : MonoBehaviour
         if (hit.transform.IsChildOf(transform)) return;
 
         // Acima do limite de inclinação é parede, não chão.
-        float angle = Vector3.Angle(hit.normal, Vector3.up);
+        float angle = Vector3.Angle(hit.normal, Cima);
         if (angle > _controller.slopeLimit) return;
 
         _groundNormal = hit.normal;
@@ -1040,7 +1170,7 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     void StickToSlope()
     {
-        if (_controller.isGrounded || _verticalVelocity > 0f) return;
+        if (Apoiado || _verticalVelocity > 0f) return;
 
         float closest = float.MaxValue;
         int count = CastDown(groundSnapDistance);
@@ -1049,12 +1179,12 @@ public class PlayerController : MonoBehaviour
         {
             ref var hit = ref _groundHits[i];
             if (!IsUsableGroundHit(hit)) continue;
-            if (Vector3.Angle(hit.normal, Vector3.up) > _controller.slopeLimit) continue;
+            if (Vector3.Angle(hit.normal, Cima) > _controller.slopeLimit) continue;
 
             closest = Mathf.Min(closest, hit.distance);
         }
 
-        if (closest < float.MaxValue) _controller.Move(Vector3.down * closest);
+        if (closest < float.MaxValue) _controller.Move(-Cima * closest);
     }
 
     int CastDown(float extraDistance)
@@ -1063,7 +1193,7 @@ public class PlayerController : MonoBehaviour
         float radius = Mathf.Max(0.01f, _controller.radius * 0.9f);
         float distance = _controller.height * 0.5f - _controller.radius + extraDistance;
 
-        return Physics.SphereCastNonAlloc(origin, radius, Vector3.down, _groundHits,
+        return Physics.SphereCastNonAlloc(origin, radius, -Cima, _groundHits,
                                           distance, groundMask, QueryTriggerInteraction.Ignore);
     }
 
@@ -1133,6 +1263,10 @@ public class PlayerController : MonoBehaviour
 
         var basis = Quaternion.Euler(0f, _movementYaw, 0f);
         Vector3 direction = basis * new Vector3(move.x, 0f, move.y);
+
+        // No trecho lateral só existe o eixo do plano: o input que apontaria
+        // para dentro ou para fora da tela é descartado, e não convertido.
+        if (_planoAtivo) direction = Vector3.ProjectOnPlane(direction, _planoNormal);
 
         return Vector3.ClampMagnitude(direction, 1f);
     }

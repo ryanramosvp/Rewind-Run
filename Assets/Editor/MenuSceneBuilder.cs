@@ -521,6 +521,7 @@ public static class MenuSceneBuilder
                             RampLevelBuilder.ScenePath,
                             RelojoariaLevelBuilder.ScenePath,
                             CoracaoLevelBuilder.ScenePath,
+                            UltimaCorridaLevelBuilder.ScenePath,
                             ResultsSceneBuilder.ScenePath,
                             CreditsSceneBuilder.ScenePath };
         var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();

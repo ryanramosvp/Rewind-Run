@@ -67,6 +67,8 @@ public static class CreditsSceneBuilder
         (Tipo.Detalhe, "gravação: Gregor Quendel (www.gregorquendel.com) - www.classicals.de"),
         (Tipo.Nome, "Paganini - Sonata nº 33, MS 84"),
         (Tipo.Detalhe, "gravação: Gregor Quendel - www.classicals.de - CC BY-NC 4.0"),
+        (Tipo.Nome, "Saint-Saëns - Danse Macabre, Op. 40"),
+        (Tipo.Detalhe, "gravação: Kevin MacLeod (www.incompetech.com) - www.classicals.de - CC BY 4.0"),
         (Tipo.Nome, "Debussy - Rêverie, L. 68"),
         (Tipo.Detalhe, "gravação: Gregor Quendel - www.classicals.de - CC BY-NC 4.0"),
         (Tipo.Nome, "Domenico Scarlatti - Stabat Mater, Amen"),

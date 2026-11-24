@@ -29,15 +29,11 @@ public static class SpeedrunLevelBuilder
     const float kRunwayTop = 9f;
     const float kCrusherTop = 17f;
 
-    // Limites de S, A, B, C e D, em segundos. Acima de D é F.
-    //
-    // Ancorados numa corrida real, não no traçado. As medalhas antigas eram
-    // estimativas (ouro 46 s) e o melhor tempo gravado no save chegou a
-    // 20,26 s - o ouro dava para pegar andando a menos da metade do ritmo.
-    // O S fica logo acima desse recorde: é o tempo de quem domina a fase. Os
-    // degraus abrem em proporção (cerca de +20%, +50%, +95% e +170% sobre o
-    // S), então cada rank pede uma melhora do mesmo tamanho relativo.
-    static readonly float[] kRanks = { 21f, 25f, 31f, 41f, 57f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (18,0 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 17f, 20f, 25f, 33f, 46f };
 
     [MenuItem("Rewind Run/Criar Fase: Corrida de Lava", priority = 7)]
     public static void Build()

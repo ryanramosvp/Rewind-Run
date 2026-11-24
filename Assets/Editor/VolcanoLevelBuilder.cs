@@ -29,15 +29,11 @@ public static class VolcanoLevelBuilder
 {
     public const string ScenePath = "Assets/Scenes/Level_LavaLetal.unity";
 
-    // Limites de S, A, B, C e D, em segundos. Estimativa, não medição: a rota
-    // tem uns 250 m entre centros de plataforma, parte deles a 15 m/s nas
-    // rampas, o que dá ~21 s sem erro; o S fica um pouco acima disso. O save
-    // registra as corridas, então recalibrar depois de jogar é ler o melhor
-    // tempo dele.
-    //
-    // Os obstáculos somam espera: prensas, gêiseres e plataformas móveis
-    // custam uns 3 s numa corrida limpa, daí o S em 27.
-    static readonly float[] kRanks = { 27f, 33f, 42f, 54f, 74f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (14,7 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 14f, 17f, 21f, 27f, 38f };
 
 
     static readonly Vector3 kSpawn = new Vector3(0f, 4.3f, 1.5f);

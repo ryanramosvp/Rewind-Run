@@ -181,6 +181,7 @@ MonoBehaviour:
   wallJumpLockTime: 0.18
   wallJumpRestoresAirJump: 1
   distinctWallAngle: 40
+  giroDaGravidade: 540
 --- !u!114 &7983592063309857930
 MonoBehaviour:
   m_ObjectHideFlags: 0

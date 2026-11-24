@@ -47,9 +47,11 @@ public static class CoracaoLevelBuilder
     public const string Musica = "Musica/sinfonia4_tchaikovsky.mp3";
     public const string MusicaFinal = "Musica/amen_scarlatti.mp3";
 
-    // Provisórios: ~350 m de percurso sem esperas, mais o poço. Recalibrar
-    // lendo o save depois de jogar.
-    static readonly float[] kRanks = { 66f, 80f, 100f, 128f, 170f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (58,2 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 55f, 66f, 82f, 107f, 150f };
 
     /// <summary>Centro da cratera, no nível da lava.</summary>
     static readonly Vector3 O = new Vector3(0f, 0f, 40f);
@@ -677,6 +679,12 @@ public static class CoracaoLevelBuilder
         EditorSetupUtil.SetReference(fim, "musicaFinal", LevelKit.MusicClip(MusicaFinal));
         EditorSetupUtil.SetReference(fim, "clarao", imagem);
         EditorSetupUtil.SetReference(fim, "volumeRewind", Object.FindAnyObjectByType<Volume>());
+        // A ampulheta não encerra mais a campanha: engole a bruxa e a leva à
+        // corrida final, do outro lado.
+        var passagem = new SerializedObject(fim);
+        passagem.FindProperty("concluiCampanha").boolValue = false;
+        passagem.ApplyModifiedPropertiesWithoutUndo();
+        EditorSetupUtil.SetString(fim, "cenaSeguinte", UltimaCorridaLevelBuilder.SceneName);
         EditorSetupUtil.SetString(fim, "cenaDosCreditos", CreditsSceneBuilder.SceneName);
         EditorSetupUtil.SetString(fim, "cenaDeResultados", ResultsSceneBuilder.SceneName);
         LevelKit.SetFloat(fim, "subida", 30f);

@@ -11,6 +11,7 @@ public struct PlayerSample
     public bool DashUsed;
     public PlayerMoveState State;
     public float HopBonus;
+    public bool GravidadeInvertida;
 }
 
 /// <summary>
@@ -42,6 +43,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
         DashUsed = _player.DashUsed,
         State = _player.State,
         HopBonus = _player.HopBonus,
+        GravidadeInvertida = _player.GravidadeInvertida,
     };
 
     protected override void Apply(in PlayerSample older, in PlayerSample newer, float t)
@@ -58,6 +60,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
             DashUsed = t >= 0.5f ? newer.DashUsed : older.DashUsed,
             State = t >= 0.5f ? newer.State : older.State,
             HopBonus = Mathf.Lerp(older.HopBonus, newer.HopBonus, t),
+            GravidadeInvertida = t >= 0.5f ? newer.GravidadeInvertida : older.GravidadeInvertida,
         };
 
         transform.SetPositionAndRotation(_lastApplied.Position, _lastApplied.Rotation);
@@ -75,6 +78,7 @@ public class PlayerRewind : RewindableBehaviour<PlayerSample>
                              _lastApplied.AirJumpsUsed,
                              _lastApplied.State,
                              _lastApplied.HopBonus,
-                             _lastApplied.DashUsed);
+                             _lastApplied.DashUsed,
+                             _lastApplied.GravidadeInvertida);
     }
 }

@@ -40,9 +40,11 @@ public static class RampLevelBuilder
     public const string ScenePath = "Assets/Scenes/Level_RampaVulcanica.unity";
     public const string SceneName = "Level_RampaVulcanica";
 
-    // Provisórios: ~300 m de pista quase toda a 15 m/s, uns 21 s sem erro.
-    // Recalibrar lendo o save depois de jogar.
-    static readonly float[] kRanks = { 28f, 35f, 44f, 58f, 80f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (21,2 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 20.5f, 24.5f, 30f, 40f, 55f };
 
     const float kStartHeight = 192f;
     const float kThickness = 1.2f;

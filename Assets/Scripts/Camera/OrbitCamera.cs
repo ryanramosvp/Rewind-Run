@@ -217,7 +217,30 @@ public class OrbitCamera : MonoBehaviour
     /// cima do modo da cena. As zonas e a câmera radial continuam pedindo
     /// enquadramentos, que só valem quando a câmera é a fixa.
     /// </summary>
-    CameraMode Modo => GameSettings.CameraComMouse ? CameraMode.Orbita : mode;
+    CameraMode Modo => _forcada ? CameraMode.Fixa : GameSettings.CameraComMouse ? CameraMode.Orbita : mode;
+
+    bool _forcada;
+
+    /// <summary>
+    /// Toma o controle da câmera para um enquadramento fixo, por cima da
+    /// preferência de mouse: o trecho em 2D precisa da vista de lado, seja
+    /// qual for a câmera escolhida.
+    /// </summary>
+    public void ForcarEnquadramento(float yaw, float pitch, float distance, float blendSeconds)
+    {
+        _forcada = true;
+        SetFixedFraming(yaw, pitch, distance, blendSeconds);
+        ApplyCursorMode();
+    }
+
+    /// <summary>Devolve a câmera ao modo de antes do enquadramento forçado.</summary>
+    public void LiberarEnquadramento()
+    {
+        if (!_forcada) return;
+        _forcada = false;
+        if (Modo == CameraMode.Fixa) ResetFraming();
+        ApplyCursorMode();
+    }
 
     void OnEnable()
     {

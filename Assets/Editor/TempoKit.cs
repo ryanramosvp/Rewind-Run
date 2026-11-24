@@ -40,6 +40,19 @@ public static class TempoKit
     public static Material CascaDaOnda { get; private set; }
     public static Material AnelDaOnda { get; private set; }
 
+    // A Última Corrida: a dimensão fora das regras.
+    public static Material CeuCosmico { get; private set; }
+    public static Material PedraCosmica { get; private set; }
+    public static Material NeonDoChao { get; private set; }
+    public static Material NeonDoTeto { get; private set; }
+    public static Material CorpoFantasma { get; private set; }
+    public static Material MioloEscuro { get; private set; }
+    public static Material LenteRoxa { get; private set; }
+    public static Material AnelVioleta { get; private set; }
+    public static Material AnelCiano { get; private set; }
+    public static Material Revelada { get; private set; }
+    public static Material Grama { get; private set; }
+
     /// <summary>Cria ou atualiza os materiais. Idempotente.</summary>
     public static void Ensure()
     {
@@ -79,6 +92,23 @@ public static class TempoKit
         Vidro = Transparente("Vidro", new Color(0.75f, 0.9f, 1f, 0.18f), aditivo: false);
 
         CeuNoturno = Ceu(Textura("ceu_noturno", 256, 256, PixelDoCeu));
+        CeuCosmico = Ceu(Textura("ceu_cosmico", 2048, 1024, PixelDoCosmos), "CeuCosmico");
+
+
+        PedraCosmica = Lit("PedraCosmica", rocha, new Color(0.3f, 0.26f, 0.48f), smoothness: 0.35f);
+        NeonDoChao = Lit("NeonDoChao", null, new Color(0.3f, 0.9f, 1f), emissionColor: new Color(0.4f, 1.8f, 2.4f));
+        NeonDoTeto = Lit("NeonDoTeto", null, new Color(0.8f, 0.4f, 1f), emissionColor: new Color(1.8f, 0.6f, 2.4f));
+        Grama = Lit("GramaDoEpilogo", rocha, new Color(0.5f, 0.85f, 0.55f), smoothness: 0.1f);
+
+        // O fantasma: translúcido e sem luz, para ler como presença, não corpo.
+        CorpoFantasma = Transparente("CorpoFantasma", new Color(0.55f, 0.85f, 1f, 0.45f), aditivo: false);
+        MioloEscuro = Carregar("MioloEscuro", "Universal Render Pipeline/Unlit");
+        MioloEscuro.SetColor("_BaseColor", Color.black);
+        EditorUtility.SetDirty(MioloEscuro);
+        LenteRoxa = Transparente("LenteRoxa", new Color(0.55f, 0.3f, 1f, 0.12f), aditivo: true);
+        AnelVioleta = Transparente("AnelVioleta", new Color(0.85f, 0.45f, 1f, 0.9f), aditivo: true);
+        AnelCiano = Transparente("AnelCiano", new Color(0.4f, 0.95f, 1f, 0.9f), aditivo: true);
+        Revelada = Transparente("PlataformaRevelada", new Color(0.5f, 0.8f, 1f, 0.5f), aditivo: true);
 
         // Grão de areia: partícula sem luz e somada, para brilhar contra o vidro.
         Particula = Carregar("GraoDeAreia", "Universal Render Pipeline/Particles/Unlit");
@@ -1026,9 +1056,55 @@ public static class TempoKit
         return material;
     }
 
-    static Material Ceu(Texture2D gradiente)
+    /// <summary>
+    /// Céu da dimensão da corrida: preto no alto, azul e roxo no meio, com
+    /// nuvens de nebulosa e estrelas por toda parte - inclusive embaixo,
+    /// porque ali não há chão nenhum, só mais espaço.
+    /// </summary>
+    public static void AplicarCosmos()
     {
-        var material = Carregar("CeuNoturno", "Skybox/Panoramic");
+        if (CeuCosmico == null) Ensure();
+
+        RenderSettings.skybox = CeuCosmico;
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.35f, 0.3f, 0.65f);
+        RenderSettings.ambientEquatorColor = new Color(0.3f, 0.22f, 0.5f);
+        RenderSettings.ambientGroundColor = new Color(0.12f, 0.1f, 0.3f);
+
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogColor = new Color(0.08f, 0.06f, 0.18f);
+        RenderSettings.fogStartDistance = 80f;
+        RenderSettings.fogEndDistance = 300f;
+    }
+
+    static Color PixelDoCosmos(float u, float v)
+    {
+        var fundo = new Color(0.02f, 0.02f, 0.06f);
+        var azul = new Color(0.08f, 0.12f, 0.35f);
+        var roxo = new Color(0.32f, 0.1f, 0.42f);
+
+        // Faixa de nebulosa em volta do horizonte, com duas camadas de ondas
+        // periódicas em u (o céu dá a volta e emenda).
+        float faixa = Mathf.Exp(-Mathf.Pow((v - 0.5f) / 0.22f, 2f));
+        float a = 2f * Mathf.PI * u;
+        float nuvem = 0.5f + 0.25f * Mathf.Sin(a * 3f + v * 9f) + 0.15f * Mathf.Sin(a * 7f - v * 15f + 1.3f)
+                      + 0.1f * Mathf.Sin(a * 13f + v * 31f + 2.1f);
+        var cor = Color.Lerp(fundo, Color.Lerp(azul, roxo, Mathf.Clamp01(nuvem)), faixa * Mathf.Clamp01(nuvem * 1.4f));
+
+        int x = Mathf.FloorToInt(u * 2048f), y = Mathf.FloorToInt(v * 1024f);
+        uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663) ^ 0x9e3779b9u;
+        h ^= h >> 13;
+        h *= 0x5bd1e995;
+        h ^= h >> 15;
+        float estrela = (h & 0xffff) / 65535f;
+        if (estrela > 0.996f) cor = Color.Lerp(cor, new Color(0.9f, 0.92f, 1f), (estrela - 0.996f) / 0.004f);
+        return cor;
+    }
+
+    static Material Ceu(Texture2D gradiente, string nome = "CeuNoturno")
+    {
+        var material = Carregar(nome, "Skybox/Panoramic");
         material.SetTexture("_MainTex", gradiente);
         material.SetFloat("_Exposure", 1f);
         EditorUtility.SetDirty(material);

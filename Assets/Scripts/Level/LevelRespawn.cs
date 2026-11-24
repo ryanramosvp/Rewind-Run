@@ -17,6 +17,9 @@ public class LevelRespawn : MonoBehaviour
     /// <summary>Disparado quando a fase recomeca por morte.</summary>
     public event System.Action Died;
 
+    /// <summary>Um ponto de controle novo foi tocado (o fantasma da corrida marca o tempo dele).</summary>
+    public event System.Action PontoDeControleDefinido;
+
     [SerializeField] PlayerController player;
 
     [Tooltip("Onde a bruxa reaparece. Vazio usa a posição em que ela começou a fase.")]
@@ -48,6 +51,7 @@ public class LevelRespawn : MonoBehaviour
         _pontoAtual = dono;
         _pontoPosicao = posicao;
         _pontoRotacao = rotacao;
+        PontoDeControleDefinido?.Invoke();
         return true;
     }
 

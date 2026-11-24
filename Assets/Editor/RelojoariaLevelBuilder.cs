@@ -34,9 +34,11 @@ public static class RelojoariaLevelBuilder
     public const string SceneName = "Level_RelojoariaSuspensa";
     public const string Musica = "Musica/badinerie_bach.mp3";
 
-    // Provisórios: ~300 m de percurso, mais as esperas dos cristais e das
-    // plataformas que piscam. Recalibrar lendo o save depois de jogar.
-    static readonly float[] kRanks = { 50f, 62f, 78f, 100f, 135f };
+    // Limites de S, A, B, C e D, em segundos; acima de D é F. Calibrados pelo
+    // recorde do desenvolvedor (45,4 s, antes do impulso
+    // valer em todas as fases): S um pouco abaixo dele, porque o impulso
+    // encurta caminhos; A-D na mesma proporção das outras fases.
+    static readonly float[] kRanks = { 42f, 50f, 62f, 82f, 114f };
 
     const float H = 40f;      // altura do primeiro trecho
     const float H2 = 45.5f;   // depois do patamar do contratempo

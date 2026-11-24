@@ -44,6 +44,13 @@ public class FimDaCampanha : MonoBehaviour
     [Tooltip("Volume com o perfil do rewind. Pulsa enquanto a ampulheta vira.")]
     [SerializeField] Volume volumeRewind;
 
+    [Tooltip("Ligado: esta é a conclusão da campanha (save, créditos, resultados). " +
+             "Desligado: é uma passagem - o clarão leva direto à cena seguinte.")]
+    [SerializeField] bool concluiCampanha = true;
+
+    [Tooltip("Com a campanha não concluída aqui, a cena carregada depois do clarão.")]
+    [SerializeField] string cenaSeguinte = "";
+
     [Tooltip("Créditos, que rolam logo depois do clarão.")]
     [SerializeField] string cenaDosCreditos = "Creditos";
 
@@ -81,7 +88,7 @@ public class FimDaCampanha : MonoBehaviour
         // enquanto a câmera se afasta.
         var colapso = CicloDoColapso.Instancia;
         if (colapso != null) colapso.Encerrar();
-        SaveSystem.ConcluirCampanha();
+        if (concluiCampanha) SaveSystem.ConcluirCampanha();
 
         // Sem controle, sem pausa, sem rewind, sem HUD: daqui em diante é só olhar.
         bruxa.enabled = false;
@@ -148,6 +155,13 @@ public class FimDaCampanha : MonoBehaviour
 
         // Os créditos vêm antes dos resultados: é o fim do jogo, e quem fez
         // aparece enquanto o coro ainda soa. Eles mesmos levam aos resultados.
+        if (!concluiCampanha && !string.IsNullOrEmpty(cenaSeguinte))
+        {
+            // Uma passagem: a ampulheta engole a bruxa e a leva à corrida final.
+            SceneManager.LoadScene(cenaSeguinte);
+            yield break;
+        }
+
         TelaDeCreditos.AbrirNoFimDaCampanha(cenaDeResultados);
         SceneManager.LoadScene(cenaDosCreditos);
     }
