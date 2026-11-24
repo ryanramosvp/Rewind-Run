@@ -91,6 +91,10 @@ public class FimDaCampanha : MonoBehaviour
         if (concluiCampanha) SaveSystem.ConcluirCampanha();
 
         // Sem controle, sem pausa, sem rewind, sem HUD: daqui em diante é só olhar.
+        // O movimento é zerado antes: desligado no meio da corrida, o controle
+        // deixaria a velocidade congelada, e a animação - que lê essa
+        // velocidade - seguiria correndo no lugar até o fim da cena.
+        bruxa.ResetToIdle();
         bruxa.enabled = false;
         var rewind = RewindManager.Instance;
         if (rewind != null) rewind.enabled = false;
