@@ -7,8 +7,9 @@ using static VolcanicKit;
 /// Fase 5: Relojoaria Suspensa - um relógio desmontado flutuando no céu da
 /// noite, acima da fumaça do vulcão.
 ///
-/// É a fase que apresenta as três ideias novas, uma de cada vez e sempre com
-/// rede antes de cobrar:
+/// É a fase que apresenta as ideias novas, uma de cada vez e sempre com rede
+/// antes de cobrar - sem textos: o impulso vem do tutorial, e o resto se
+/// ensina pelo desenho:
 ///  1. Impulso no ar: o primeiro vão de impulso tem uma rede embaixo, com
 ///     degraus de volta; só o segundo, depois de um ponto de controle, cobra
 ///     o impulso de verdade (20 m, impossível sem ele).
@@ -68,7 +69,6 @@ public static class RelojoariaLevelBuilder
         CriarCenario(Group(level, "Cenario"));
 
         var player = LevelKit.AssembleSystems(kRanks, CoracaoLevelBuilder.SceneName, null);
-        TempoKit.LiberarImpulso(player);
         LevelKit.CreateMusic(Musica);
         if (player != null)
             player.transform.SetPositionAndRotation(new Vector3(0f, H + 0.3f, -3f), Quaternion.identity);
@@ -103,9 +103,6 @@ public static class RelojoariaLevelBuilder
     /// </summary>
     static void CriarImpulso(Transform root)
     {
-        TempoKit.Aviso(root, "Aviso_Impulso", new Bounds(new Vector3(0f, H + 1.5f, 13f), new Vector3(8f, 4f, 6f)),
-                       "No ar, aperte SHIFT para dar um impulso. Um por salto - volta ao tocar o chão, uma bolha ou uma parede.",
-                       "No ar, aperte RB para dar um impulso. Um por salto - volta ao tocar o chão, uma bolha ou uma parede.");
 
         TempoKit.Placa(root, "Rede", new Vector3(0f, H - 6f, 24f), 8f, 12f);
         TempoKit.Placa(root, "Degrau1", new Vector3(5.5f, H - 4f, 21f), 3f, 3f);
@@ -114,8 +111,6 @@ public static class RelojoariaLevelBuilder
         TempoKit.Placa(root, "Plataforma2", new Vector3(0f, H, 34f), 6f, 6f);
         TempoKit.PontoDeControle(root, "PontoDeControle1", new Vector3(0f, H, 35f), 0f);
 
-        TempoKit.Aviso(root, "Aviso_ImpulsoLongo", new Bounds(new Vector3(0f, H + 1.5f, 35f), new Vector3(6f, 4f, 4f)),
-                       "Pulo, pulo duplo e só então o impulso: é assim que se vai mais longe.", null, 4f);
 
         TempoKit.Placa(root, "Plataforma3", new Vector3(0f, H, 60f), 6f, 6f);
     }
@@ -126,8 +121,6 @@ public static class RelojoariaLevelBuilder
     /// </summary>
     static void CriarZona(Transform root)
     {
-        TempoKit.Aviso(root, "Aviso_Zona", new Bounds(new Vector3(0f, H + 1.5f, 60f), new Vector3(6f, 4f, 6f)),
-                       "Zonas de âmbar desaceleram o mundo - mas não você.", null);
 
         TempoKit.Placa(root, "Ponte", new Vector3(0f, H, 72f), 4.4f, 16f);
         TempoKit.HeliceComRelogio(root, "Helice_DaZona", new Vector3(0f, H, 72f), 240f, 0f);
@@ -164,9 +157,6 @@ public static class RelojoariaLevelBuilder
     /// </summary>
     static void CriarContratempo(Transform root)
     {
-        TempoKit.Aviso(root, "Aviso_Contratempo", new Bounds(new Vector3(0f, H + 1.5f, 118f), new Vector3(14f, 4f, 6f)),
-                       "Cristais azuis só andam enquanto você volta no tempo. Segure o BOTÃO DIREITO e veja.",
-                       "Cristais azuis só andam enquanto você volta no tempo. Segure LB / LT e veja.", 6f);
 
         TempoKit.Contratempo(root, "Cristal1", new Vector3(5.5f, H, 124.5f), 3f, 3f, new Vector3(0f, H2 - H - 2.75f, 0f), 1.2f);
         TempoKit.Engrenagem(root, "Patamar", new Vector3(0f, H2, 128.5f), 4f, 12f);

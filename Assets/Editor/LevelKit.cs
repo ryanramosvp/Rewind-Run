@@ -726,6 +726,10 @@ public static class LevelKit
         SetFloat(orbit, "fixedPitch", 26f);
         SetFloat(orbit, "fixedDistance", 20f);
 
+        // Câmera com mouse (o padrão): um pouco mais longe que os 11 m do
+        // componente, porque as fases são abertas e os vãos, largos.
+        SetFloat(orbit, "distance", 13f);
+
         return go;
     }
 

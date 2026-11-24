@@ -11,6 +11,23 @@ public static class GameSettings
     const string kShowTimer = "rr.showTimer";
     const string kShowSpeed = "rr.showSpeed";
     const string kVolume = "rr.volume";
+    const string kCameraMouse = "rr.cameraMouse";
+
+    /// <summary>
+    /// Câmera com mouse: fica atrás da bruxa e volta sozinha para lá quando
+    /// ela corre, mas o mouse (ou o analógico direito) a gira. Desligada, vale
+    /// a câmera fixa de cada fase.
+    /// </summary>
+    public static bool CameraComMouse
+    {
+        get => PlayerPrefs.GetInt(kCameraMouse, 1) == 1;
+        set
+        {
+            PlayerPrefs.SetInt(kCameraMouse, value ? 1 : 0);
+            PlayerPrefs.Save();
+            Changed?.Invoke();
+        }
+    }
 
     /// <summary>Cronômetro visível durante a fase.</summary>
     public static bool ShowTimer

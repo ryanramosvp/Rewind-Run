@@ -170,7 +170,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   groundSnapDistance: 0.5
-  dashLiberado: 0
+  dashLiberado: 1
   dashSpeed: 24
   dashSeconds: 0.18
   dashExitSpeed: 12.5

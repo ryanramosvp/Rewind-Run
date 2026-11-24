@@ -39,6 +39,8 @@ public class MainMenu : MonoBehaviour
     [SerializeField] Button backButton;
     [SerializeField] Button settingsBackButton;
     [SerializeField] TMP_Text timerToggleLabel;
+    [SerializeField] TMP_Text cameraToggleLabel;
+    [SerializeField] Image cameraPill;
     [SerializeField] TMP_Text speedToggleLabel;
     [SerializeField] Image timerPill;
     [SerializeField] Image speedPill;
@@ -424,6 +426,12 @@ public class MainMenu : MonoBehaviour
         RefreshToggleLabels();
     }
 
+    public void ToggleCamera()
+    {
+        GameSettings.CameraComMouse = !GameSettings.CameraComMouse;
+        RefreshToggleLabels();
+    }
+
     public void ToggleSpeed()
     {
         GameSettings.ShowSpeed = !GameSettings.ShowSpeed;
@@ -465,6 +473,7 @@ public class MainMenu : MonoBehaviour
 
         Apply(timerToggleLabel, timerPill, GameSettings.ShowTimer);
         Apply(speedToggleLabel, speedPill, GameSettings.ShowSpeed);
+        Apply(cameraToggleLabel, cameraPill, GameSettings.CameraComMouse);
     }
 
     static void Apply(TMP_Text label, Image pill, bool on)

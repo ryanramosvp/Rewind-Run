@@ -161,9 +161,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField, Min(0f)] float groundSnapDistance = 0.5f;
 
     [Header("Impulso no ar (dash)")]
-    [Tooltip("Liga o impulso nesta fase. Fica desligado nas fases 1 a 4: elas foram " +
-             "medidas sem ele, e o alcance a mais abriria atalhos que pulam o desenho delas.")]
-    [SerializeField] bool dashLiberado;
+    [Tooltip("Liga o impulso. Ligado desde a primeira fase: o tutorial o ensina junto " +
+             "com o pulo duplo, e nas fases antigas o alcance a mais vira atalho de speedrun.")]
+    [SerializeField] bool dashLiberado = true;
 
     [Tooltip("Velocidade horizontal durante o impulso, em m/s. Com 24 m/s por 0,18 s o " +
              "impulso soma uns 7 m ao salto - abaixo disso ele quase não muda o alcance " +
@@ -220,6 +220,9 @@ public class PlayerController : MonoBehaviour
     public Vector3 HorizontalVelocity => _horizontalVelocity;
     public float VerticalVelocity => _verticalVelocity;
     public bool IsGrounded => _controller.isGrounded;
+
+    /// <summary>Plataforma móvel sob os pés agora, se houver (peças que reagem ao peso a leem).</summary>
+    public IPlataformaMovel PlataformaSobOsPes => _controller.isGrounded ? _platform : null;
     public int AirJumpsUsed => _airJumpsUsed;
 
     /// <summary>O impulso deste salto já foi gasto.</summary>

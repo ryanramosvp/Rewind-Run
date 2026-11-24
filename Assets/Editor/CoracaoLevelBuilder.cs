@@ -49,7 +49,7 @@ public static class CoracaoLevelBuilder
 
     // Provisórios: ~350 m de percurso sem esperas, mais o poço. Recalibrar
     // lendo o save depois de jogar.
-    static readonly float[] kRanks = { 60f, 72f, 90f, 115f, 155f };
+    static readonly float[] kRanks = { 66f, 80f, 100f, 128f, 170f };
 
     /// <summary>Centro da cratera, no nível da lava.</summary>
     static readonly Vector3 O = new Vector3(0f, 0f, 40f);
@@ -78,12 +78,12 @@ public static class CoracaoLevelBuilder
         CriarRegiaoIntermediaria(Group(level, "2_RegiaoIntermediaria"));
         CriarRegiaoExterna(Group(level, "3_RegiaoExterna"));
         CriarPonteFinal(Group(level, "4_PonteFinal"));
+        CriarObstaculos(Group(level, "Obstaculos"));
         var ampulheta = CriarAmpulheta(Group(level, "Ampulheta"), ciclo);
         CriarDestrocos(Group(level, "Destrocos"));
         CriarCratera(Group(level, "Cratera"));
 
         var player = LevelKit.AssembleSystems(kRanks, ResultsSceneBuilder.SceneName, "ver resultados");
-        TempoKit.LiberarImpulso(player);
         LevelKit.CreateMusic(Musica);
         var largada = P(0f, 95f, H1 + 0.3f);
         if (player != null) player.transform.SetPositionAndRotation(largada, Quaternion.identity);
@@ -378,12 +378,16 @@ public static class CoracaoLevelBuilder
     /// onda dificulta; nunca obriga a esperar.
     /// </summary>
     /// <param name="caminho">Direção em que se anda ali. O escorregão é de lado a ela, para não abrir o vão do salto.</param>
+    /// <param name="escada">Trecho que sobe: as peças sobem juntas e alternam só de lado, para o desnível
+    /// entre os degraus não crescer com a onda.</param>
     static GameObject Peca(Transform root, string name, Vector3 topo, float yaw, float x, float z, Vector3 caminho,
-                           int indice, float forca = 1f, Material tampo = null, float espessura = 0.9f)
+                           int indice, float forca = 1f, Material tampo = null, float espessura = 0.9f,
+                           bool escada = false)
     {
         bool par = indice % 2 == 0;
         var lado = Vector3.Cross(Vector3.up, caminho.normalized);
-        var deslocamento = Vector3.up * ((par ? 1.6f : -0.8f) * forca) + lado * ((par ? 1.5f : -1.5f) * forca);
+        float sobe = escada ? 1.2f : (par ? 1.2f : -0.6f);
+        var deslocamento = Vector3.up * (sobe * forca) + lado * ((par ? 1.5f : -1.5f) * forca);
         var giro = new Vector3(0f, 0f, (par ? 6f : -6f) * forca);
         return Fragmento(root, name, topo, yaw, x, z, deslocamento, giro, registrarSolta: null,
                          balanco: 0.12f * forca, tampo: tampo, espessura: espessura);
@@ -403,9 +407,9 @@ public static class CoracaoLevelBuilder
         Peca(root, "Entrada", P(0f, 82f, H1), rumo, 12f, 8f, dentro, 0, 0.6f);
         Peca(root, "Laje1", P(0f, 71.5f, H1 + 0.5f), rumo, 5f, 6f, dentro, 1);
         Peca(root, "Laje2", P(0f, 65f, H1 + 1f), rumo, 5f, 6f, dentro, 2);
-        Peca(root, "Margem", P(0f, 56f, H1 + 1.5f), rumo, 10f, 10f, dentro, 3, 0.8f);
-        Peca(root, "Degrau1", P(0f, 47f, H1 + 3f), rumo, 4f, 4f, dentro, 4);
-        Peca(root, "Degrau2", P(0f, 42f, H1 + 4.8f), rumo, 4f, 4f, dentro, 5);
+        Peca(root, "Margem", P(0f, 56f, H1 + 1.5f), rumo, 10f, 10f, dentro, 3, 0.8f, escada: true);
+        Peca(root, "Degrau1", P(0f, 47f, H1 + 3f), rumo, 4f, 4f, dentro, 4, escada: true);
+        Peca(root, "Degrau2", P(0f, 42f, H1 + 4.8f), rumo, 4f, 4f, dentro, 5, escada: true);
 
         // Ponto de controle sempre em chão fixo: renascer numa peça solta
         // poria a bruxa no ar.
@@ -432,13 +436,13 @@ public static class CoracaoLevelBuilder
         var t = Tangente(kGrausDaTorre);
 
         Peca(root, "Caminho", P(18f, 40f, H2), Rumo(18f), 6f, 8f, Tangente(18f), 0);
-        Peca(root, "PeDaTorre", P(kGrausDaTorre, 40f, H2), rumo, 8f, 8f, Tangente(kGrausDaTorre), 1, 0.8f);
+        Peca(root, "PeDaTorre", P(kGrausDaTorre, 40f, H2), rumo, 8f, 8f, Tangente(kGrausDaTorre), 1, 0.8f, escada: true);
 
         for (int i = 0; i < 3; i++)
         {
-            float topo = H2 + 2.5f + i * 2.5f;
+            float topo = H2 + 2f + i * 2.5f;
             Peca(root, $"BlocoDaTorre{i + 1}", BaseDaTorre + t * (6f * (i + 1)) + Vector3.up * topo, rumo, 5f, 5f, t,
-                 i + 1, 0.8f, espessura: 2.5f);
+                 i + 1, 0.8f, espessura: 2.5f, escada: true);
         }
 
         float patamar = H2 + 10f;
@@ -463,6 +467,8 @@ public static class CoracaoLevelBuilder
         LevelKit.SetVector(fragmento, "deslocamento", Vector3.zero);
         LevelKit.SetVector(fragmento, "giro", new Vector3(-10f, 0f, 0f));
         LevelKit.SetFloat(fragmento, "balanco", 0f);
+        // Rampa de 16 m pendendo com o peso giraria a ponta longe demais.
+        DesligarPeso(fragmento);
         EditorSetupUtil.SetReferences(fragmento, "rachaduras", rachas);
 
         s_PontaParada = patamar + comprimento * Mathf.Sin(10f * Mathf.Deg2Rad);
@@ -564,6 +570,63 @@ public static class CoracaoLevelBuilder
     }
 
     /// <summary>
+    /// Obstáculos ao longo do caminho, um ou dois por região, sem fechar
+    /// nenhum trecho:
+    ///  - hélices montadas nas próprias peças, que flutuam e escorregam com a
+    ///    onda (empurram para fora, e fora é o vazio);
+    ///  - pêndulos atravessando vãos e a rampa inclinada, de lado ao caminho;
+    ///  - um gêiser de lava na ilha onde se pousa depois do impulso.
+    /// Todos têm relógio próprio, que o rewind já volta.
+    /// </summary>
+    static void CriarObstaculos(Transform root)
+    {
+        // Primeira região: pêndulo no primeiro vão, hélice na Margem,
+        // pêndulo entre os dois degraus.
+        TempoKit.Pendulo(root, "Pendulo_Entrada", P(0f, 75.25f, H1 + 8.7f), 7.3f, 55f, 2.1f, 0f);
+        HeliceNaPeca("Margem", 160f, 0f, 2);
+        TempoKit.Pendulo(root, "Pendulo_Degraus", P(0f, 44.5f, H1 + 3.9f + 8.7f), 7.3f, 55f, 1.9f, 0.5f);
+
+        // Região intermediária: hélice no pé da torre e dois pêndulos sobre a rampa.
+        HeliceNaPeca("PeDaTorre", 180f, 0.25f, 1);
+        float rumo = Rumo(kGrausDaTorre);
+        float patamar = H2 + 10f;
+        foreach (var (s, fase) in new[] { (5f, 0f), (11f, 0.5f) })
+        {
+            float superficie = patamar + s * Mathf.Sin(10f * Mathf.Deg2Rad);
+            TempoKit.Pendulo(root, $"Pendulo_Rampa{(fase > 0f ? 2 : 1)}", Adiante(30f + s, superficie + 8.7f),
+                             7.3f, 55f, 2.2f, fase, yaw: rumo);
+        }
+
+        // Região externa: hélice na primeira ilha e o gêiser na ilha do impulso.
+        var ilha1 = GameObject.Find("Ilha1").transform.position;
+        var helice = LevelKit.Blade(root, new Vector3(ilha1.x, s_Observatorio.y, ilha1.z), 140f, 0f, 2);
+        helice.name = "Helice_Ilha1";
+        var ilhaDoImpulso = GameObject.Find("IlhaDoImpulso").transform.position;
+        Geyser(root, "Geiser_IlhaDoImpulso", new Vector3(ilhaDoImpulso.x, s_Observatorio.y, ilhaDoImpulso.z), 1.4f, 0f, 9f);
+
+        // Ponte final: hélices em duas peças e um pêndulo no vão de baixo.
+        HeliceNaPeca("PecaFinal2", 200f, 0f, 1);
+        HeliceNaPeca("PecaFinal4", -200f, 0.5f, 1);
+        float g = s_GrausDaTorreDoFim;
+        float yMeio = s_Observatorio.y - 3f - 4.5f * 3.2f;
+        TempoKit.Pendulo(root, "Pendulo_Ponte", P(g, 37f, yMeio + 8.7f), 7.3f, 55f, 1.8f, 0.25f,
+                         yaw: RumoParaDentro(g));
+    }
+
+    /// <summary>
+    /// Hélice presa no meio de uma peça que a onda move: vai junto com ela.
+    /// Sem marcas de estático, ou a malha ficaria parada no lugar de origem.
+    /// </summary>
+    static void HeliceNaPeca(string peca, float grausPorSegundo, float fase, int bracos)
+    {
+        var alvo = GameObject.Find(peca).transform;
+        var helice = LevelKit.Blade(alvo, Vector3.zero, grausPorSegundo, fase, bracos);
+        helice.name = "Helice_" + peca;
+        foreach (var t in helice.GetComponentsInChildren<Transform>(true))
+            GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+    }
+
+    /// <summary>
     /// A ilha do núcleo, embaixo da ampulheta: o miolo é fixo, a borda são
     /// oito lascas que se soltam com a onda. Tocar a ilha encerra a campanha.
     /// </summary>
@@ -653,6 +716,7 @@ public static class CoracaoLevelBuilder
             LevelKit.SetVector(f, "giro", new Vector3((float)random.NextDouble() * 160f - 80f,
                                                       (float)random.NextDouble() * 160f - 80f, 0f));
             LevelKit.SetFloat(f, "balanco", 0.6f);
+            DesligarPeso(f);
         }
     }
 
@@ -762,6 +826,16 @@ public static class CoracaoLevelBuilder
     /// Confere uma sequência em todas as combinações de pose. Falha se alguma
     /// for impossível; avisa quando a pior pede pulo duplo.
     /// </summary>
+    static void DesligarPeso(FragmentoTemporal fragmento)
+    {
+        var so = new SerializedObject(fragmento);
+        so.FindProperty("reageAoPeso").boolValue = false;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>Quanto uma peça solta pode estar afundada pelo peso na hora do salto.</summary>
+    const float kAfundamento = 0.6f;
+
     static float DistanciaDaOnda((float top, Vector2[] poly) peca)
     {
         var c = Centroid(peca.poly);
@@ -788,6 +862,9 @@ public static class CoracaoLevelBuilder
             {
                 if (!misturadas && de.Count > 1 && para.Count > 1 && x != y) continue;
                 var f = de[x];
+                // Saindo de uma peça solta, ela pode estar no fundo do
+                // afundamento: o salto parte até um metro mais baixo.
+                if (de.Count > 1 && x == 1) f = (f.top - kAfundamento, f.poly);
                 var t = para[y];
                 var r = Judge(report.Jump, Gap(f.poly, t.poly), t.top - f.top);
                 if (r.rank > pior.rank || (r.rank == pior.rank && r.gap > pior.gap)) pior = r;

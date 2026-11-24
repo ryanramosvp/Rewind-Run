@@ -421,15 +421,17 @@ public static class TempoKit
     /// um caminho que corre em Z.
     /// </summary>
     public static GameObject Pendulo(Transform root, string name, Vector3 pivo, float comprimento, float amplitude,
-                                     float periodo, float fase, float raioDoPeso = 1.2f)
+                                     float periodo, float fase, float raioDoPeso = 1.2f, float yaw = 0f)
     {
+        // yaw gira o plano do balanço: com ele o pêndulo atravessa de lado um
+        // caminho que corre em qualquer direção.
         var suporte = Group(root, name + "_Arco");
         var viga = LowPolyMesh.Prism(LowPolyMesh.Rectangle(10f, 0.6f), -0.6f, 0f, 2f);
-        Solid(suporte, "Viga", viga, Ferro, Ferro, pivo + Vector3.up * 0.3f, 0f);
+        Solid(suporte, "Viga", viga, Ferro, Ferro, pivo + Vector3.up * 0.3f, yaw);
 
         var go = new GameObject(name);
         go.transform.SetParent(root, false);
-        go.transform.localPosition = pivo;
+        go.transform.SetLocalPositionAndRotation(pivo, Quaternion.Euler(0f, yaw, 0f));
 
         var haste = Solid(go.transform, "Haste", LowPolyMesh.Prism(LowPolyMesh.Rectangle(0.25f, 0.25f), -comprimento, 0f, 2f),
                           Ferro, Ferro, Vector3.zero, 0f);
@@ -621,16 +623,6 @@ public static class TempoKit
     public static GameObject ZonaDeCamera(Transform root, string name, Bounds area, float yaw, float pitch,
                                           float distancia) =>
         KayKitPlacer.CreateCameraZone(root, "Zona_" + name, area, yaw, pitch, distancia);
-
-    /// <summary>Liga o impulso no ar na bruxa desta cena: só as fases novas o têm.</summary>
-    public static void LiberarImpulso(GameObject player)
-    {
-        if (player == null) return;
-        var controller = player.GetComponent<PlayerController>();
-        var so = new SerializedObject(controller);
-        so.FindProperty("dashLiberado").boolValue = true;
-        so.ApplyModifiedPropertiesWithoutUndo();
-    }
 
     static AudioSource Fonte3D(GameObject go, float min, float max)
     {

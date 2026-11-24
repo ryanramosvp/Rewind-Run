@@ -170,7 +170,7 @@ public class OrbitCamera : MonoBehaviour
     /// virar sozinha no meio da corrida.
     /// </summary>
     public bool IsReframing =>
-        mode == CameraMode.Fixa && Mathf.Abs(Mathf.DeltaAngle(_yaw, _targetYaw)) > 0.5f;
+        Modo == CameraMode.Fixa && Mathf.Abs(Mathf.DeltaAngle(_yaw, _targetYaw)) > 0.5f;
 
     /// <summary>Volta ao enquadramento padrão do Inspector.</summary>
     public void ResetFraming()
@@ -191,7 +191,7 @@ public class OrbitCamera : MonoBehaviour
     /// </summary>
     public void ApplyCursorMode()
     {
-        bool locked = lockCursor && mode == CameraMode.Orbita;
+        bool locked = lockCursor && Modo == CameraMode.Orbita;
 
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !locked;
@@ -212,7 +212,20 @@ public class OrbitCamera : MonoBehaviour
         else FreeCursor();
     }
 
-    void OnEnable() => ApplyCursorMode();
+    /// <summary>
+    /// Modo valendo agora: a preferência "câmera com mouse" põe a órbita por
+    /// cima do modo da cena. As zonas e a câmera radial continuam pedindo
+    /// enquadramentos, que só valem quando a câmera é a fixa.
+    /// </summary>
+    CameraMode Modo => GameSettings.CameraComMouse ? CameraMode.Orbita : mode;
+
+    void OnEnable()
+    {
+        ApplyCursorMode();
+        GameSettings.Changed += ApplyCursorMode;
+    }
+
+    void OnDisable() => GameSettings.Changed -= ApplyCursorMode;
 
     void LateUpdate()
     {
@@ -220,7 +233,7 @@ public class OrbitCamera : MonoBehaviour
 
         float dt = Time.deltaTime;
 
-        if (mode == CameraMode.Orbita)
+        if (Modo == CameraMode.Orbita)
         {
             UpdateAngles(dt);
         }
@@ -251,11 +264,11 @@ public class OrbitCamera : MonoBehaviour
     /// </summary>
     float ResolveSmoothedDistance(Vector3 back, float dt)
     {
-        float target = mode == CameraMode.Fixa ? _targetDistance : distance;
+        float target = Modo == CameraMode.Fixa ? _targetDistance : distance;
 
         // No modo fixo a colisão é opcional e vem desligada: uma câmera que
         // aproxima em corredores deixa de ser fixa, que é o motivo de escolhê-la.
-        bool useCollision = mode == CameraMode.Orbita || fixedModeCollision;
+        bool useCollision = Modo == CameraMode.Orbita || fixedModeCollision;
         float desired = useCollision ? ResolveDistance(back, target) : target;
 
         if (_currentDistance < 0f) _currentDistance = desired;   // primeiro frame
@@ -280,7 +293,7 @@ public class OrbitCamera : MonoBehaviour
     {
         Vector3 desired = target.position + targetOffset;
 
-        if (mode == CameraMode.Fixa && lookAhead > 0f && _player != null)
+        if (Modo == CameraMode.Fixa && lookAhead > 0f && _player != null)
         {
             // Adianta o foco para onde a bruxa vai, para sobrar tela à frente.
             // A meta é suavizada, senão o quadro daria um tranco a cada inversão.
@@ -294,7 +307,7 @@ public class OrbitCamera : MonoBehaviour
         }
 
         float horizontalBlend = 1f - Mathf.Exp(-followSharpness * dt);
-        float verticalBlend = 1f - Mathf.Exp(-(mode == CameraMode.Fixa ? verticalSharpness : followSharpness) * dt);
+        float verticalBlend = 1f - Mathf.Exp(-(Modo == CameraMode.Fixa ? verticalSharpness : followSharpness) * dt);
 
         _focus = new Vector3(
             Mathf.Lerp(_focus.x, desired.x, horizontalBlend),

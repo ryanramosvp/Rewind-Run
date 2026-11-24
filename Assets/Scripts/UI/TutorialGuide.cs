@@ -12,7 +12,7 @@ using UnityEngine.UI;
 /// texto terminar.
 ///
 /// A ordem segue a dependência entre os comandos: andar, pular, pulo duplo,
-/// parede, e só então o rewind - que precisa de história gravada e, mais
+/// impulso (também no ar, logo depois do duplo), parede, e só então o rewind - que precisa de história gravada e, mais
 /// importante, faz mais sentido depois que o jogador já errou alguma coisa.
 /// A subida da espiral fecha usando tudo junto.
 ///
@@ -21,13 +21,15 @@ using UnityEngine.UI;
 /// </summary>
 public class TutorialGuide : MonoBehaviour
 {
-    enum Goal { Andar, Pular, PuloDuplo, SaltoDeParede, VoltarNoTempo, ChegarAoTopo }
+    enum Goal { Andar, Pular, PuloDuplo, Impulso, SaltoDeParede, VoltarNoTempo, ChegarAoTopo }
 
     static readonly (Goal goal, string text)[] Steps =
     {
         (Goal.Andar, "Use WASD para andar."),
         (Goal.Pular, "Aperte ESPAÇO para pular."),
         (Goal.PuloDuplo, "Pule e, ainda no ar, aperte ESPAÇO de novo: é o pulo duplo."),
+        (Goal.Impulso, "No ar, aperte SHIFT para dar um impulso para onde você está indo. " +
+                       "É um por salto, e volta ao tocar o chão, uma parede ou uma bolha."),
         (Goal.SaltoDeParede, "Pule contra a parede do vulcão e, encostada nela, " +
                              "aperte ESPAÇO: é o salto de parede."),
         (Goal.VoltarNoTempo, "Segure o BOTÃO DIREITO do mouse para voltar no tempo. " +
@@ -82,6 +84,7 @@ public class TutorialGuide : MonoBehaviour
 
         player.Jumped += OnJumped;
         player.WallJumped += OnWallJumped;
+        player.Dashed += OnDashed;
         _lastPosition = player.transform.position;
 
         Show();
@@ -93,6 +96,7 @@ public class TutorialGuide : MonoBehaviour
 
         player.Jumped -= OnJumped;
         player.WallJumped -= OnWallJumped;
+        player.Dashed -= OnDashed;
     }
 
     void Update()
@@ -156,6 +160,13 @@ public class TutorialGuide : MonoBehaviour
 
         if (Current == Goal.Pular && !isAirJump) Complete();
         else if (Current == Goal.PuloDuplo && isAirJump) Complete();
+    }
+
+    void OnDashed()
+    {
+        if (_praiseTimer >= 0f || _finishTimer >= 0f) return;
+
+        if (Current == Goal.Impulso) Complete();
     }
 
     void OnWallJumped()

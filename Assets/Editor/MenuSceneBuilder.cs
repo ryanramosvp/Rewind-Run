@@ -315,16 +315,21 @@ public static class MenuSceneBuilder
         var holder = UiBuilder.CreateStretched(root, "TelaDeOpcoes");
         ThemedUi.Backdrop(holder, Dim(theme, 0.94f));
 
-        var card = ThemedUi.Card(holder, "Cartao", "CONFIGURAÇÕES", new Vector2(0f, 80f), new Vector2(1060f, 700f),
+        var card = ThemedUi.Card(holder, "Cartao", "CONFIGURAÇÕES", new Vector2(0f, 60f), new Vector2(1060f, 860f),
                                  out _);
         var row = new Vector2(960f, 88f);
 
-        var volume = ThemedUi.SliderRow(card, "VOLUME", new Vector2(0f, 190f), row, out var volumeLabel, out _);
+        var volume = ThemedUi.SliderRow(card, "VOLUME", new Vector2(0f, 250f), row, out var volumeLabel, out _);
 
-        var timerButton = ThemedUi.ToggleRow(card, "CRONÔMETRO", new Vector2(0f, 88f), row,
+        var timerButton = ThemedUi.ToggleRow(card, "CRONÔMETRO", new Vector2(0f, 148f), row,
                                              out var timerState, out timerPill, out _);
-        var speedButton = ThemedUi.ToggleRow(card, "VELOCIDADE", new Vector2(0f, -14f), row,
+        var speedButton = ThemedUi.ToggleRow(card, "VELOCIDADE", new Vector2(0f, 46f), row,
                                              out var speedState, out speedPill, out _);
+        var cameraButton = ThemedUi.ToggleRow(card, "CÂMERA COM MOUSE", new Vector2(0f, -56f), row,
+                                              out var cameraState, out var cameraPill, out _);
+        UiBuilder.Bind(cameraButton, menu, nameof(MainMenu.ToggleCamera));
+        EditorSetupUtil.SetReference(menu, "cameraToggleLabel", cameraState);
+        EditorSetupUtil.SetReference(menu, "cameraPill", cameraPill);
         timerLabel = timerState;
         speedLabel = speedState;
 
@@ -337,22 +342,22 @@ public static class MenuSceneBuilder
 
         // Os controles moram aqui agora: o menu principal ficou só com as
         // cinco ações de campanha e o Sair.
-        var controls = ThemedUi.MenuButton(card, "CONTROLES", new Vector2(0f, -116f), row, out _, out _);
+        var controls = ThemedUi.MenuButton(card, "CONTROLES", new Vector2(0f, -158f), row, out _, out _);
         UiBuilder.Bind(controls, menu, nameof(MainMenu.OpenControls));
 
         // Por último e separado por um fio: é a única coisa do menu que não
         // se desfaz. Abre uma confirmação, não apaga direto.
-        var line = UiBuilder.CreateRect(card, "Separador", new Vector2(0.5f, 0.5f), new Vector2(0f, -180f),
+        var line = UiBuilder.CreateRect(card, "Separador", new Vector2(0.5f, 0.5f), new Vector2(0f, -222f),
                                         new Vector2(900f, 2f)).gameObject.AddComponent<Image>();
         line.color = new Color(theme.metal.r, theme.metal.g, theme.metal.b, 0.5f);
         line.raycastTarget = false;
 
-        var wipe = ThemedUi.MenuButton(card, "APAGAR TODOS OS DADOS", new Vector2(0f, -246f), row, out _, out _);
+        var wipe = ThemedUi.MenuButton(card, "APAGAR TODOS OS DADOS", new Vector2(0f, -288f), row, out _, out _);
         UiBuilder.Bind(wipe, menu, nameof(MainMenu.AskDeleteAll));
         var wipeMarker = wipe.transform.Find("Marcador").GetComponent<Image>();
         wipeMarker.color = theme.danger;
 
-        back = ThemedUi.MenuButton(holder, "VOLTAR", new Vector2(0f, -350f), new Vector2(420f, 92f),
+        back = ThemedUi.MenuButton(holder, "VOLTAR", new Vector2(0f, -440f), new Vector2(420f, 92f),
                                    out var backSlot, out _);
         UiBuilder.Bind(back, menu, nameof(MainMenu.CloseControls));
 
