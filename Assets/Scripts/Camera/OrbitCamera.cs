@@ -342,6 +342,11 @@ public class OrbitCamera : MonoBehaviour
     {
         if (input == null) return;
 
+        // Jogo parado (pausa, telas de fim, abertura): o mouse fica com a
+        // interface. O giro do mouse não passa pelo tempo de jogo, e sem isto
+        // a câmera rodava por trás do menu de pausa.
+        if (Time.timeScale <= 0.0001f) return;
+
         Vector2 look = input.Look;
         float yawDelta, pitchDelta;
 
@@ -381,6 +386,16 @@ public class OrbitCamera : MonoBehaviour
 
         Vector3 velocity = _player.HorizontalVelocity;
         if (velocity.sqrMagnitude < autoFollowMinSpeed * autoFollowMinSpeed) return;
+
+        // Só realinha quando o jogador segue para a frente. Andando de lado
+        // ou de costas, seguir a velocidade giraria a câmera junto com o
+        // passo - e, como o movimento é relativo à câmera, o "lado" mudaria a
+        // cada quadro e a bruxa andaria em círculo.
+        if (input != null)
+        {
+            Vector2 move = input.Move;
+            if (move.y < 0.3f || Mathf.Abs(move.x) > move.y * 1.2f) return;
+        }
 
         float desiredYaw = Mathf.Atan2(velocity.x, velocity.z) * Mathf.Rad2Deg;
         _yaw = Mathf.MoveTowardsAngle(_yaw, desiredYaw, autoFollowSpeed * dt);

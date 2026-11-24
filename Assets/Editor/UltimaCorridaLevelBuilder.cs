@@ -42,8 +42,9 @@ public static class UltimaCorridaLevelBuilder
     // Faixas mandadas pelo autor; enquanto não chegam, as provisórias abaixo.
     public const string Musica = "Musica/ultima_corrida.mp3";
     public const string MusicaDaVitoria = "Musica/vitoria_final.mp3";
-    const string kMusicaProvisoria = "Musica/rei_da_montanha.mp3";
-    const string kVitoriaProvisoria = "Musica/reverie_debussy.mp3";
+    const string kMusicaProvisoria = "Musica/baroni_ironworks.mp3";
+    // Homecoming (Andrea Baroni): a volta para casa, no jardim do fim.
+    const string kVitoriaProvisoria = "Musica/baroni_homecoming.mp3";
 
     // Provisórios. Só termina a fase quem chega antes do fantasma (~56 s), mas
     // o tempo da fase segue correndo nas mortes; o S pede vencê-lo com folga.
@@ -98,8 +99,7 @@ public static class UltimaCorridaLevelBuilder
         CriarMedidor();
         CriarCamera(largada);
 
-        TempoKit.Aviso(fase, "Aviso_Corrida", new Bounds(largada, new Vector3(8f, 4f, 8f)),
-                       "Chegue antes do seu fantasma.", null, 3.5f);
+        CriarAbertura();
 
         TempoKit.Vazio(fase, new Vector3(0f, 6f, 450f), new Vector3(500f, 8f, 1300f));
         TempoKit.Vazio(fase, new Vector3(0f, 62f, 450f), new Vector3(500f, 8f, 1300f));
@@ -740,7 +740,11 @@ public static class UltimaCorridaLevelBuilder
         var box = portalGo.AddComponent<BoxCollider>();
         box.isTrigger = true;
         box.size = new Vector3(5f, 5f, 1.5f);
+        var somDaTravessia = portalGo.AddComponent<AudioSource>();
+        somDaTravessia.playOnAwake = false;
+        somDaTravessia.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Shapeforms/travessia.wav");
         var travessia = portalGo.AddComponent<PortalDeTravessia>();
+        EditorSetupUtil.SetReference(travessia, "som", somDaTravessia);
         EditorSetupUtil.SetReference(travessia, "destino", destino);
         EditorSetupUtil.SetReference(travessia, "anel", anel.transform);
 
@@ -752,6 +756,7 @@ public static class UltimaCorridaLevelBuilder
         area.size = new Vector3(12f, 4f, 3f);
         var som = go.AddComponent<AudioSource>();
         som.playOnAwake = false;
+        som.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Shapeforms/fantasma_some.wav");
         var chegadaDaCorrida = go.AddComponent<ChegadaDaCorrida>();
         EditorSetupUtil.SetReference(chegadaDaCorrida, "portal", portalGo);
         EditorSetupUtil.SetReference(chegadaDaCorrida, "som", som);
@@ -818,6 +823,7 @@ public static class UltimaCorridaLevelBuilder
         }
 
         so.FindProperty("passo").floatValue = Rota.Passo;
+        so.FindProperty("supernova").objectReferenceValue = CriarSupernova(root);
         so.FindProperty("areaDoEco").boundsValue = eco;
         so.FindProperty("modelo").objectReferenceValue = orientacao;
         so.FindProperty("animator").objectReferenceValue = animator;
@@ -827,6 +833,83 @@ public static class UltimaCorridaLevelBuilder
         lista.arraySize = corpo.Count;
         for (int i = 0; i < corpo.Count; i++) lista.GetArrayElementAtIndex(i).objectReferenceValue = corpo[i];
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// A supernova da derrota, pronta e desligada: núcleo, onda de choque,
+    /// faíscas, luz, som e o branco de tela inteira (ver <see cref="Supernova"/>).
+    /// </summary>
+    static Supernova CriarSupernova(Transform root)
+    {
+        var go = new GameObject("Supernova");
+        go.transform.SetParent(root, false);
+
+        var nucleo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        Object.DestroyImmediate(nucleo.GetComponent<Collider>());
+        nucleo.name = "Nucleo";
+        nucleo.transform.SetParent(go.transform, false);
+        nucleo.GetComponent<MeshRenderer>().sharedMaterial = TempoKit.Areia;
+
+        var onda = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        Object.DestroyImmediate(onda.GetComponent<Collider>());
+        onda.name = "Onda";
+        onda.transform.SetParent(go.transform, false);
+        var ondaRenderer = onda.GetComponent<MeshRenderer>();
+        ondaRenderer.sharedMaterial = TempoKit.CascaDaOnda;
+        ondaRenderer.shadowCastingMode = ShadowCastingMode.Off;
+
+        var luz = new GameObject("Luz").AddComponent<Light>();
+        luz.transform.SetParent(go.transform, false);
+        luz.type = LightType.Point;
+        luz.color = new Color(0.85f, 0.92f, 1f);
+        luz.range = 60f;
+        luz.intensity = 2f;
+
+        var faiscasGo = new GameObject("Faiscas");
+        faiscasGo.transform.SetParent(go.transform, false);
+        var faiscas = faiscasGo.AddComponent<ParticleSystem>();
+        var main = faiscas.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.duration = 0.5f;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.8f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.8f, 0.95f, 1f), new Color(1f, 0.8f, 0.5f));
+        main.maxParticles = 1500;
+        main.useUnscaledTime = true;
+        var emissao = faiscas.emission;
+        emissao.rateOverTime = 0f;
+        emissao.SetBursts(new[] { new ParticleSystem.Burst(0f, 1200) });
+        var forma = faiscas.shape;
+        forma.shapeType = ParticleSystemShapeType.Sphere;
+        forma.radius = 1f;
+        var pr = faiscasGo.GetComponent<ParticleSystemRenderer>();
+        pr.sharedMaterial = TempoKit.Particula;
+        pr.shadowCastingMode = ShadowCastingMode.Off;
+
+        var som = go.AddComponent<AudioSource>();
+        som.playOnAwake = false;
+        som.spatialBlend = 0f;
+
+        var canvas = UiBuilder.CreateCanvas("BrancoDaSupernova", sortOrder: 90);
+        var branco = new GameObject("Branco").AddComponent<Image>();
+        branco.transform.SetParent(canvas.transform, false);
+        var rect = branco.rectTransform;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        branco.color = new Color(1f, 1f, 1f, 0f);
+        branco.raycastTarget = false;
+
+        var supernova = go.AddComponent<Supernova>();
+        EditorSetupUtil.SetReference(supernova, "nucleo", nucleo.transform);
+        EditorSetupUtil.SetReference(supernova, "onda", onda.transform);
+        EditorSetupUtil.SetReference(supernova, "ondaRenderer", ondaRenderer);
+        EditorSetupUtil.SetReference(supernova, "faiscas", faiscas);
+        EditorSetupUtil.SetReference(supernova, "luz", luz);
+        EditorSetupUtil.SetReference(supernova, "clarao", branco);
+        EditorSetupUtil.SetReference(supernova, "som", som);
+        go.SetActive(false);
+        return supernova;
     }
 
     static ParticleSystem Particulas(Transform pai, string nome, bool rastro)
@@ -907,6 +990,35 @@ public static class UltimaCorridaLevelBuilder
         EditorSetupUtil.SetReference(hud, "marcaDoFantasma", fantasma);
         EditorSetupUtil.SetReference(hud, "diferenca", texto);
         EditorSetupUtil.SetReference(hud, "grupo", grupo);
+    }
+
+    /// <summary>
+    /// Abertura: tela preta por cima de tudo e "Vença a si mesmo" escrito
+    /// letra por letra (ver <see cref="IntroDaCorrida"/>).
+    /// </summary>
+    static void CriarAbertura()
+    {
+        var canvas = UiBuilder.CreateCanvas("Abertura", sortOrder: 70);
+        canvas.GetComponent<CanvasScaler>().matchWidthOrHeight = 1f;
+        var tela = UiBuilder.CreateStretched(canvas.transform, "TelaPreta");
+        var fundo = tela.gameObject.AddComponent<Image>();
+        fundo.color = Color.black;
+        var grupo = tela.gameObject.AddComponent<CanvasGroup>();
+        grupo.blocksRaycasts = false;
+
+        var texto = ThemedUi.Text(tela, "Frase", "", 64f, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero,
+                                  new Vector2(1400f, 120f), spacing: 6f);
+        texto.fontSizeMin = 64f;
+
+        var som = canvas.gameObject.AddComponent<AudioSource>();
+        som.playOnAwake = false;
+        som.spatialBlend = 0f;
+        som.ignoreListenerPause = true;
+
+        var intro = canvas.gameObject.AddComponent<IntroDaCorrida>();
+        EditorSetupUtil.SetReference(intro, "tela", grupo);
+        EditorSetupUtil.SetReference(intro, "texto", texto);
+        EditorSetupUtil.SetReference(intro, "som", som);
     }
 
     /// <summary>Ilhas geométricas e anéis ao longe, sem colisão: o espaço em volta da corrida.</summary>

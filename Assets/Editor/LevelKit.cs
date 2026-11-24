@@ -97,24 +97,24 @@ public static class LevelKit
         EditorSetupUtil.SetReference(sounds, "source", source);
         EditorSetupUtil.SetReference(sounds, "select", Clip("ui_selecao.ogg"));
         EditorSetupUtil.SetReference(sounds, "confirm", Clip("ui_confirmacao.ogg"));
-        EditorSetupUtil.SetReference(sounds, "victory", Clip("fanfarra_vitoria.mp3"));
+        EditorSetupUtil.SetReference(sounds, "victory", Clip("Shapeforms/vitoria.wav"));
     }
 
     // ------------------------------------------------------------------
     // Música
     // ------------------------------------------------------------------
 
-    /// <summary>Valsa das Flores (Tchaikovsky): menu e resultados. O jogo começa e termina nela.</summary>
-    public const string MenuMusic = "Musica/valsa_das_flores.mp3";
+    /// <summary>Casual Soldiers - Titles (Andrea Baroni): o menu.</summary>
+    public const string MenuMusic = "Musica/baroni_titulo.mp3";
 
-    /// <summary>Abertura de As Bodas de Fígaro (Mozart): ligeira e constante, para as fases de aprender e embalar.</summary>
-    public const string LightLevelMusic = "Musica/figaro_abertura.mp3";
+    /// <summary>Casual Soldiers - In Game (Andrea Baroni): ligeira e constante, para as fases de aprender e embalar.</summary>
+    public const string LightLevelMusic = "Musica/baroni_em_jogo.mp3";
 
     /// <summary>
-    /// Na Gruta do Rei da Montanha (Grieg): começa baixo e cresce até explodir.
-    /// Vai no vulcão e no fim, onde a campanha aperta.
+    /// Ironworks (Andrea Baroni): cinematográfica e pesada. Vai no vulcão,
+    /// onde a campanha aperta.
     /// </summary>
-    public const string DarkLevelMusic = "Musica/rei_da_montanha.mp3";
+    public const string DarkLevelMusic = "Musica/baroni_ironworks.mp3";
 
     /// <summary>Sonata 33 (Paganini), violão: leve e paciente, para o tutorial.</summary>
     public const string TutorialMusic = "Musica/sonata33_paganini.mp3";
@@ -138,9 +138,9 @@ public static class LevelKit
     }
 
     /// <summary>
-    /// Música vai como streaming: lida do disco aos pedaços enquanto toca. A
-    /// valsa tem sete minutos; descomprimida na memória seria um bloco de
-    /// dezenas de megabytes parado só para o menu.
+    /// Música vai como streaming: lida do disco aos pedaços enquanto toca. Uma
+    /// faixa de alguns minutos, descomprimida na memória, seria um bloco de
+    /// dezenas de megabytes parado só para tocar ao fundo.
     /// </summary>
     public static AudioClip MusicClip(string fileName)
     {

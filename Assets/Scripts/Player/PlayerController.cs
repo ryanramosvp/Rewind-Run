@@ -217,6 +217,9 @@ public class PlayerController : MonoBehaviour
     /// <summary>Disparado ao começar um impulso no ar. Som e rastro escutam isto.</summary>
     public event System.Action Dashed;
 
+    /// <summary>Quicou numa bolha.</summary>
+    public event System.Action Quicou;
+
     public Vector3 HorizontalVelocity => _horizontalVelocity;
     public float VerticalVelocity => _verticalVelocity;
     public bool IsGrounded => Apoiado;
@@ -1051,6 +1054,7 @@ public class PlayerController : MonoBehaviour
         // que o quique. Uma bolha nunca pode tirar altura de ninguém.
         _verticalVelocity = Mathf.Max(_verticalVelocity,
                                       Mathf.Sqrt(2f * gravity * Mathf.Max(0f, height)));
+        Quicou?.Invoke();
         _airJumpsUsed = 0;
         _dashUsed = false;
         _dashTimer = 0f;

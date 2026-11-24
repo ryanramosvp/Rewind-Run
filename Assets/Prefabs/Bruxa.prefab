@@ -354,9 +354,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6bbd8d7cd71ca545a352b68dd892422, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAudio
-  jump: {fileID: 8300000, guid: 3ebab7a62f414564f806893c26308509, type: 3}
+  jump: {fileID: 8300000, guid: aa2538dedc3e692489edaa7c3ace01aa, type: 3}
+  wallJump: {fileID: 8300000, guid: 0a98d7543d5195b4484b08e977bd2a27, type: 3}
+  land: {fileID: 8300000, guid: 4b0f9ea52712cc442a57115817f25c3f, type: 3}
+  bounce: {fileID: 8300000, guid: 20584fcf867af9c419b6e6ff416f8401, type: 3}
+  death: {fileID: 8300000, guid: 8b54a2cad7ef49a498c4f9b42d7ea8fd, type: 3}
+  rewind: {fileID: 8300000, guid: 592ce8888663d5940af2135e36c252ab, type: 3}
   volume: 0.45
   airJumpPitch: 1.2
+  quedaMinima: 9
 --- !u!114 &6054881024116493804
 MonoBehaviour:
   m_ObjectHideFlags: 0

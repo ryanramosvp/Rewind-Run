@@ -70,8 +70,8 @@ public class FantasmaDaCorrida : MonoBehaviour
     [SerializeField] ParticleSystem rastro;
     [SerializeField] ParticleSystem dissolucao;
 
-    [Tooltip("Segundos com o aviso na tela antes de a fase recomeçar, depois de perder.")]
-    [SerializeField, Min(0f)] float esperaDaDerrota = 1.8f;
+    [Tooltip("A supernova que engole a bruxa quando o fantasma chega primeiro.")]
+    [SerializeField] Supernova supernova;
 
     [Tooltip("Cor do corpo translúcido.")]
     [SerializeField] Color cor = new Color(0.55f, 0.85f, 1f, 0.45f);
@@ -245,15 +245,14 @@ public class FantasmaDaCorrida : MonoBehaviour
     void PerdeuACorrida() => StartCoroutine(RecomecarAFase());
 
     /// <summary>
-    /// O fantasma chegou primeiro: aviso curto e a fase recomeça do início,
-    /// sem tela de morte no meio - não foi uma queda. A bruxa para, o
-    /// fantasma fica na chegada, e o rewind sai de cena para ninguém voltar
-    /// no tempo durante a espera.
+    /// O fantasma chegou primeiro: onde ele está uma estrela colapsa e
+    /// explode, a onda alcança a bruxa, tudo fica branco e a fase recomeça do
+    /// início (ver <see cref="Supernova"/>). Sem tela de morte no meio - não
+    /// foi uma queda, foi o fim daquele tempo.
     /// </summary>
     IEnumerator RecomecarAFase()
     {
         _parado = true;
-        PainelDeAvisos.Mostrar("O fantasma chegou primeiro.", null, esperaDaDerrota + 0.5f);
 
         if (_bruxa != null)
         {
@@ -263,9 +262,20 @@ public class FantasmaDaCorrida : MonoBehaviour
 
         var rewind = RewindManager.Instance;
         if (rewind != null) rewind.enabled = false;
+        foreach (var pausa in FindObjectsByType<PauseMenu>(FindObjectsInactive.Exclude)) pausa.enabled = false;
+        MusicPlayer.Hush(10f);
 
-        // Tempo real: com uma pausa aberta no meio, a espera ainda termina.
-        yield return new WaitForSecondsRealtime(esperaDaDerrota);
+        // O fantasma vira a estrela: some, e ela nasce onde ele estava.
+        if (modelo != null) modelo.gameObject.SetActive(false);
+        if (rastro != null) rastro.Stop();
+
+        bool terminou = false;
+        if (supernova != null)
+            supernova.Explodir(transform.position, _bruxa != null ? _bruxa.transform : null, () => terminou = true);
+        else
+            terminou = true;
+
+        while (!terminou) yield return null;
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }

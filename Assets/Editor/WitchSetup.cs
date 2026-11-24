@@ -229,9 +229,16 @@ public static class WitchSetup
         voice.playOnAwake = false;
         voice.spatialBlend = 0f;
 
+        // Efeitos da Shapeforms Audio. A pasta fica fora do git (a licença não
+        // deixa redistribuir os arquivos); sem ela a bruxa só fica calada.
         var audio = root.AddComponent<PlayerAudio>();
-        EditorSetupUtil.SetReference(audio, "jump",
-            AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/pulo.mp3"));
+        foreach (var (campo, arquivo) in new[]
+                 {
+                     ("jump", "pulo"), ("wallJump", "salto_de_parede"), ("land", "aterrissagem"),
+                     ("bounce", "quique"), ("death", "morte"), ("rewind", "rewind"),
+                 })
+            EditorSetupUtil.SetReference(audio, campo,
+                AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/Audio/Shapeforms/{arquivo}.wav"));
 
         var shadow = root.AddComponent<PlayerDropShadow>();
         EditorSetupUtil.SetReference(shadow, "material", DropShadowMaterial());

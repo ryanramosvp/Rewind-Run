@@ -64,7 +64,42 @@ public static class SomProcedural
     public static AudioClip Estalo => _estalo ??= Gerar("Estalo", 0.35f, RuidoDescendo(0.35f, 1f));
 
     static AudioClip _carga, _onda, _retorno;
-    static AudioClip _inversao, _buracoNegro;
+    static AudioClip _inversao, _buracoNegro, _letra, _supernova, _zumbidoAgudo;
+
+    /// <summary>
+    /// A supernova chegando: um grave que cresce por três segundos, com ruído
+    /// subindo por cima - o rugido de algo enorme se aproximando.
+    /// </summary>
+    public static AudioClip Supernova => _supernova ??= Gerar("Supernova", 3.6f, Rugindo());
+
+    static System.Func<float, float> Rugindo()
+    {
+        var ruido = new System.Random(31);
+        float filtrado = 0f;
+        return t =>
+        {
+            float u = Mathf.Clamp01(t / 3.4f);
+            float bruto = (float)ruido.NextDouble() * 2f - 1f;
+            filtrado += (bruto - filtrado) * Mathf.Lerp(0.02f, 0.25f, u);
+            float grave = Mathf.Sin(2f * Mathf.PI * (32f + 20f * u) * t) * 0.6f;
+            return (grave + filtrado * 2.2f) * u * u * 0.8f;
+        };
+    }
+
+    /// <summary>Zumbido agudo depois do estrondo, como ouvido tinindo, sumindo devagar.</summary>
+    public static AudioClip Zumbido_Agudo => _zumbidoAgudo ??= Gerar("ZumbidoAgudo", 1.8f, t =>
+        Mathf.Sin(2f * Mathf.PI * 3800f * t) * Mathf.Exp(-t * 1.6f) * 0.25f);
+
+    /// <summary>
+    /// Bipe de letra, para texto escrito aos poucos: uma onda quadrada curta
+    /// e seca, o som de caixa de diálogo de jogo antigo.
+    /// </summary>
+    public static AudioClip Letra => _letra ??= Gerar("Letra", 0.06f, t =>
+    {
+        float onda = Mathf.Sin(2f * Mathf.PI * 520f * t) >= 0f ? 1f : -1f;
+        float env = Mathf.Clamp01(1f - t / 0.06f);
+        return onda * env * 0.22f;
+    });
 
     /// <summary>
     /// Gravidade virando: um tom que sobe e desce numa volta só, como algo

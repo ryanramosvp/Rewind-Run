@@ -116,3 +116,8 @@ InitTestScene*.unity*
 # Backups de cena que o Unity cria ao se recuperar de um travamento
 /[Aa]ssets/_Recovery/
 /[Aa]ssets/_Recovery.meta
+
+# Efeitos da Shapeforms Audio: a licença proíbe redistribuí-los como arquivos
+# soltos, e este repositório é público. Ficam só na cópia local e na build.
+/[Aa]ssets/[Aa]udio/[Ss]hapeforms/
+/[Aa]ssets/[Aa]udio/[Ss]hapeforms.meta
